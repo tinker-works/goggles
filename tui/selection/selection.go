@@ -45,7 +45,7 @@ func DefaultKeyMap() KeyMap {
 
 // New creates a selection model.
 func New(items ...Item) Model {
-	return Model{Items: append([]Item(nil), items...), KeyMap: DefaultKeyMap()}
+	return Model{Items: append([]Item(nil), items...), Active: true, KeyMap: DefaultKeyMap()}
 }
 
 // NewString creates a selection model from labels.
