@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/lipgloss/v2"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // Model stores text and rendering options.
@@ -46,14 +47,11 @@ func Wrap(content string, width int) string {
 		if lipgloss.Width(line) <= width {
 			continue
 		}
-		var wrapped []string
-		runes := []rune(line)
-		for len(runes) > width {
-			wrapped = append(wrapped, string(runes[:width]))
-			runes = runes[width:]
+		wrapped := ansi.Hardwrap(line, width, true)
+		if newline := strings.IndexByte(wrapped, '\n'); newline >= 0 && lipgloss.Width(wrapped[:newline]) == 0 {
+			wrapped = wrapped[:newline] + wrapped[newline+1:]
 		}
-		wrapped = append(wrapped, string(runes))
-		lines[i] = strings.Join(wrapped, "\n")
+		lines[i] = wrapped
 	}
 	return strings.Join(lines, "\n")
 }

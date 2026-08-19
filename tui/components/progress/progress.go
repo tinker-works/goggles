@@ -25,10 +25,17 @@ func New(width int) Model {
 }
 
 // SetPercent sets and clamps the progress value.
-func (m *Model) SetPercent(value float64) { m.Value = math.Max(0, math.Min(1, value)) }
+func (m *Model) SetPercent(value float64) { m.Value = clampPercent(value) }
 
 // Percent returns the clamped progress value.
-func (m Model) Percent() float64 { return math.Max(0, math.Min(1, m.Value)) }
+func (m Model) Percent() float64 { return clampPercent(m.Value) }
+
+func clampPercent(value float64) float64 {
+	if math.IsNaN(value) {
+		return 0
+	}
+	return math.Max(0, math.Min(1, value))
+}
 
 // View renders the progress bar.
 func (m Model) View() string {
