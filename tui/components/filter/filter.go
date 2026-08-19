@@ -19,6 +19,7 @@ func New(placeholder string) Model {
 	input.Prompt = "/ "
 	input.Placeholder = placeholder
 	input.CharLimit = 256
+	input.Focus()
 	return Model{Input: input}
 }
 
