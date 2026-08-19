@@ -3,6 +3,8 @@ package markdown
 
 import (
 	"strings"
+
+	"github.com/charmbracelet/glamour"
 )
 
 // Model stores markdown source and rendering options.
@@ -27,30 +29,25 @@ func (m Model) Render() string {
 	if strings.TrimSpace(m.Source) == "" {
 		return ""
 	}
-	content := strings.TrimSuffix(m.Source, "\n")
+
+	style := m.Style
+	if style == "" {
+		style = "dark"
+	}
+	options := []glamour.TermRendererOption{glamour.WithStandardStyle(style)}
 	if m.Width > 0 {
-		content = wrap(content, m.Width)
+		options = append(options, glamour.WithWordWrap(m.Width))
+	}
+	renderer, err := glamour.NewTermRenderer(options...)
+	if err != nil {
+		return strings.TrimSuffix(m.Source, "\n")
+	}
+	content, err := renderer.Render(m.Source)
+	if err != nil {
+		return strings.TrimSuffix(m.Source, "\n")
 	}
 	return content
 }
 
 // View implements the conventional component view method.
 func (m Model) View() string { return m.Render() }
-
-func wrap(content string, width int) string {
-	lines := strings.Split(content, "\n")
-	for i, line := range lines {
-		if len([]rune(line)) <= width {
-			continue
-		}
-		runes := []rune(line)
-		parts := make([]string, 0, len(runes)/width+1)
-		for len(runes) > width {
-			parts = append(parts, string(runes[:width]))
-			runes = runes[width:]
-		}
-		parts = append(parts, string(runes))
-		lines[i] = strings.Join(parts, "\n")
-	}
-	return strings.Join(lines, "\n")
-}
