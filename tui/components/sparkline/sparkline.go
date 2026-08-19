@@ -21,9 +21,15 @@ func New(width int) Model { return Model{Width: width} }
 // SetValues replaces the data points.
 func (m *Model) SetValues(values []float64) { m.Values = append(m.Values[:0], values...) }
 
-// View renders values normalized to the range of the current series.
+// View renders finite values normalized to the range of the current series.
 func (m Model) View() string {
-	values := m.Values
+	values := make([]float64, 0, len(m.Values))
+	for _, value := range m.Values {
+		if math.IsNaN(value) || math.IsInf(value, 0) {
+			continue
+		}
+		values = append(values, value)
+	}
 	if m.Width > 0 && len(values) > m.Width {
 		values = values[len(values)-m.Width:]
 	}
