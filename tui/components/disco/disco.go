@@ -37,5 +37,9 @@ func (m Model) View() string {
 	if len(m.Frames) == 0 {
 		return ""
 	}
-	return m.Frames[m.Frame%len(m.Frames)]
+	frame := m.Frame % len(m.Frames)
+	if frame < 0 {
+		frame += len(m.Frames)
+	}
+	return m.Frames[frame]
 }
