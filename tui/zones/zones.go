@@ -2,9 +2,13 @@
 package zones
 
 import (
+	"sort"
 	"sync"
+	"unicode/utf8"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/charmbracelet/x/ansi"
+	zone "github.com/lrstanley/bubblezone"
 )
 
 // Zone describes a rectangular interactive region.
@@ -38,12 +42,106 @@ func (z Zone) Pos(msg tea.MouseMsg) (int, int) {
 // Manager stores zones for one rendered view. It is safe to use from a view
 // renderer and an update loop running on separate goroutines.
 type Manager struct {
-	mu    sync.RWMutex
-	zones map[string]Zone
+	mu sync.RWMutex
+
+	// zones contains zones registered directly with Set. Rendered zones are
+	// kept separately so Scan can replace only the zones found in the view.
+	zones    map[string]Zone
+	rendered map[string]Zone
+
+	// markers maps BubbleZone's generated marker sequences back to the IDs
+	// exposed by this package.
+	markers map[string]string
+
+	scanMu  sync.Mutex
+	manager *zone.Manager
 }
 
 // New creates an empty manager.
-func New() *Manager { return &Manager{zones: make(map[string]Zone)} }
+func New() *Manager {
+	return &Manager{
+		zones:    make(map[string]Zone),
+		rendered: make(map[string]Zone),
+		markers:  make(map[string]string),
+		manager:  zone.New(),
+	}
+}
+
+// Close stops the marker scanner's worker.
+func (m *Manager) Close() {
+	if m == nil {
+		return
+	}
+	m.scanMu.Lock()
+	if m.manager != nil {
+		m.manager.Close()
+	}
+	m.scanMu.Unlock()
+}
+
+// Mark wraps content in a zero-width marker for id. The markers are removed
+// by Scan after their coordinates have been recorded.
+func (m *Manager) Mark(id, content string) string {
+	if m == nil || id == "" || content == "" {
+		return content
+	}
+
+	m.scanMu.Lock()
+	defer m.scanMu.Unlock()
+	m.initialize()
+	marked := m.manager.Mark(id, content)
+	if len(marked) <= len(content) {
+		return marked
+	}
+
+	markerSize := (len(marked) - len(content)) / 2
+	marker := marked[:markerSize]
+	if marker == "" || len(marked) != len(content)+markerSize*2 || marked[len(marked)-markerSize:] != marker {
+		return marked
+	}
+
+	m.mu.Lock()
+	m.markers[marker] = id
+	m.mu.Unlock()
+	return marked
+}
+
+// Scan removes markers from view and records the zones they delimit. It is
+// intended to wrap the outermost rendered view.
+func (m *Manager) Scan(view string) string {
+	if m == nil {
+		return view
+	}
+
+	m.scanMu.Lock()
+	defer m.scanMu.Unlock()
+	m.initialize()
+	clean := m.manager.Scan(view)
+	rendered := m.scan(view)
+
+	m.mu.Lock()
+	m.rendered = rendered
+	m.mu.Unlock()
+	return clean
+}
+
+func (m *Manager) initialize() {
+	if m.manager != nil {
+		return
+	}
+	m.manager = zone.New()
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.zones == nil {
+		m.zones = make(map[string]Zone)
+	}
+	if m.rendered == nil {
+		m.rendered = make(map[string]Zone)
+	}
+	if m.markers == nil {
+		m.markers = make(map[string]string)
+	}
+}
 
 // Set records a zone, replacing any earlier zone with the same ID.
 func (m *Manager) Set(zone Zone) {
@@ -71,6 +169,7 @@ func (m *Manager) Replace(zones []Zone) {
 	}
 	m.mu.Lock()
 	m.zones = next
+	m.rendered = make(map[string]Zone)
 	m.mu.Unlock()
 }
 
@@ -81,6 +180,7 @@ func (m *Manager) Clear() {
 	}
 	m.mu.Lock()
 	m.zones = make(map[string]Zone)
+	m.rendered = make(map[string]Zone)
 	m.mu.Unlock()
 }
 
@@ -90,7 +190,10 @@ func (m *Manager) Get(id string) (Zone, bool) {
 		return Zone{}, false
 	}
 	m.mu.RLock()
-	zone, ok := m.zones[id]
+	zone, ok := m.rendered[id]
+	if !ok {
+		zone, ok = m.zones[id]
+	}
 	m.mu.RUnlock()
 	return zone, ok
 }
@@ -102,13 +205,79 @@ func (m *Manager) Hit(msg tea.MouseMsg) (Zone, bool) {
 		return Zone{}, false
 	}
 	m.mu.RLock()
-	defer m.mu.RUnlock()
+	candidates := make([]Zone, 0, len(m.rendered)+len(m.zones))
+	for _, zone := range m.rendered {
+		candidates = append(candidates, zone)
+	}
+	for id, zone := range m.zones {
+		if _, rendered := m.rendered[id]; !rendered {
+			candidates = append(candidates, zone)
+		}
+	}
+	m.mu.RUnlock()
+
 	var hit Zone
 	found := false
-	for _, zone := range m.zones {
+	for _, zone := range candidates {
 		if zone.InBounds(msg) && (!found || zone.ID < hit.ID) {
 			hit, found = zone, true
 		}
 	}
 	return hit, found
+}
+
+type marker struct {
+	value string
+	id    string
+}
+
+func (m *Manager) scan(view string) map[string]Zone {
+	m.mu.RLock()
+	markers := make([]marker, 0, len(m.markers))
+	for value, id := range m.markers {
+		markers = append(markers, marker{value: value, id: id})
+	}
+	m.mu.RUnlock()
+	sort.Slice(markers, func(i, j int) bool {
+		return len(markers[i].value) > len(markers[j].value)
+	})
+
+	active := make(map[string]Zone)
+	result := make(map[string]Zone)
+	line := ""
+	y := 0
+	for pos := 0; pos < len(view); {
+		if matched, ok := scanMarker(view[pos:], markers); ok {
+			x := ansi.StringWidth(line)
+			if start, exists := active[matched.id]; exists {
+				start.EndX = x - 1
+				start.EndY = y
+				result[start.ID] = start
+				delete(active, matched.id)
+			} else {
+				active[matched.id] = Zone{ID: matched.id, StartX: x, StartY: y}
+			}
+			pos += len(matched.value)
+			continue
+		}
+
+		r, width := utf8.DecodeRuneInString(view[pos:])
+		if r == '\n' {
+			line = ""
+			y++
+		} else {
+			line += view[pos : pos+width]
+		}
+		pos += width
+	}
+	return result
+}
+
+func scanMarker(view string, markers []marker) (marker, bool) {
+	for _, marker := range markers {
+		if len(view) >= len(marker.value) && view[:len(marker.value)] == marker.value {
+			return marker, true
+		}
+	}
+	return marker{}, false
 }
