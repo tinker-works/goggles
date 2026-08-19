@@ -29,7 +29,7 @@ func (m Model) View() string {
 		return strings.TrimSpace(left + " " + right)
 	}
 	available := m.Width - lipgloss.Width(left) - lipgloss.Width(right)
-	if available < 1 {
+	if available < 0 {
 		return lipgloss.NewStyle().Width(m.Width).MaxWidth(m.Width).Render(left)
 	}
 	return left + strings.Repeat(" ", available) + right

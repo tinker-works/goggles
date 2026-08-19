@@ -12,3 +12,12 @@ func TestStatuslineContainsBothSides(t *testing.T) {
 		t.Fatalf("statusline = %q", got)
 	}
 }
+
+func TestStatuslineExactFitContainsBothSides(t *testing.T) {
+	m := New(9)
+	m.Set("left", "right")
+
+	if got := m.View(); got != "leftright" {
+		t.Fatalf("statusline = %q, want %q", got, "leftright")
+	}
+}
