@@ -41,11 +41,29 @@ func (m Model) View() string {
 		minValue, maxValue = math.Min(minValue, value), math.Max(maxValue, value)
 	}
 	levels := []rune("▁▂▃▄▅▆▇█")
+	if maxValue == minValue {
+		return m.Style.Render(strings.Repeat(string(levels[0]), len(values)))
+	}
 	result := make([]rune, len(values))
 	for i, value := range values {
 		ratio := 0.0
-		if maxValue > minValue {
+		if minValue >= 0 || maxValue <= 0 {
 			ratio = (value - minValue) / (maxValue - minValue)
+		} else {
+			// Split mixed-sign ranges to avoid overflowing their span.
+			negativeSpan, positiveSpan := -minValue, maxValue
+			negativeWeight := 0.0
+			if negativeSpan >= positiveSpan {
+				negativeWeight = 1 / (1 + positiveSpan/negativeSpan)
+			} else {
+				relativeSpan := negativeSpan / positiveSpan
+				negativeWeight = relativeSpan / (1 + relativeSpan)
+			}
+			if value < 0 {
+				ratio = (1 + value/negativeSpan) * negativeWeight
+			} else {
+				ratio = negativeWeight + (value/positiveSpan)*(1-negativeWeight)
+			}
 		}
 		result[i] = levels[int(math.Round(ratio*float64(len(levels)-1)))]
 	}
