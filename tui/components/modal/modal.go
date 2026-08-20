@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"charm.land/bubbles/v2/key"
+	"charm.land/bubbles/v2/textarea"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/tinker-works/goggles/tui/theme"
@@ -82,8 +83,7 @@ type Model struct {
 	values  []string
 	cursors []int
 	checked []bool
-	body    string
-	bodyPos int
+	body    textarea.Model
 	cycle   int
 }
 
@@ -104,8 +104,18 @@ func NewForm(spec Spec, t theme.Theme, width int) Model {
 	checked := make([]bool, len(spec.Options))
 	copy(checked, spec.Checked)
 	choice := max(0, min(spec.Selected, max(0, len(spec.Choices)-1)))
-	return Model{Width: width, Style: t.Panel, TitleStyle: t.Title, SelectedStyle: t.Selected,
+	m := Model{Width: width, Style: t.Panel, TitleStyle: t.Title, SelectedStyle: t.Selected,
 		spec: spec, form: true, choice: choice, values: values, cursors: cursors, checked: checked}
+	if spec.Body {
+		m.body = textarea.New()
+		m.body.Prompt = "Body: "
+		m.body.CharLimit = 5000
+		m.body.ShowLineNumbers = false
+		m.body.SetHeight(5)
+		m.resizeBody()
+		m.syncBodyFocus()
+	}
+	return m
 }
 
 // Show opens the modal with content.
@@ -158,6 +168,7 @@ func (m Model) updateFormKey(keyMsg tea.KeyPressMsg) (Model, tea.Cmd) {
 		focusable := m.focusable()
 		if focusable > 0 {
 			m.focus = (m.focus + 1) % focusable
+			m.syncBodyFocus()
 		}
 		return m, nil
 	}
@@ -165,6 +176,7 @@ func (m Model) updateFormKey(keyMsg tea.KeyPressMsg) (Model, tea.Cmd) {
 		focusable := m.focusable()
 		if focusable > 0 {
 			m.focus = (m.focus + focusable - 1) % focusable
+			m.syncBodyFocus()
 		}
 		return m, nil
 	}
@@ -204,8 +216,9 @@ func (m Model) updateFormKey(keyMsg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.bodyFocused() {
-		m.body, m.bodyPos = editText(m.body, m.bodyPos, keyMsg)
-		return m, nil
+		var cmd tea.Cmd
+		m.body, cmd = m.body.Update(keyMsg)
+		return m, cmd
 	}
 	if m.focus >= 0 && m.focus < len(m.values) {
 		m.values[m.focus], m.cursors[m.focus] = editText(m.values[m.focus], m.cursors[m.focus], keyMsg)
@@ -234,6 +247,7 @@ func (m Model) updateFormMouse(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 		if zones.In(mouse, zones.ModalOption(i)) {
 			m.focus = m.focusable() - 1
 			m.option = i
+			m.syncBodyFocus()
 			if i < len(m.checked) {
 				m.checked[i] = !m.checked[i]
 			}
@@ -242,11 +256,13 @@ func (m Model) updateFormMouse(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 	}
 	if m.spec.Body && zones.In(mouse, zones.ModalBody) {
 		m.focus = len(m.values)
+		m.syncBodyFocus()
 		return m, nil
 	}
 	for i := range m.values {
 		if zones.In(mouse, zones.ModalField(i)) {
 			m.focus = i
+			m.syncBodyFocus()
 			return m, nil
 		}
 	}
@@ -265,7 +281,7 @@ func (m Model) submit() tea.Cmd {
 		}
 	}
 	choice := m.choice
-	body := m.body
+	body := m.body.Value()
 	cycle := m.cycle
 	return func() tea.Msg {
 		return SubmittedMsg{ID: m.spec.ID, Values: values, Body: body, Options: options, Choice: choice, Cycle: cycle}
@@ -273,7 +289,10 @@ func (m Model) submit() tea.Cmd {
 }
 
 // Resize changes the form width.
-func (m *Model) Resize(width int) { m.Width = width }
+func (m *Model) Resize(width int) {
+	m.Width = width
+	m.resizeBody()
+}
 
 // Values returns the current form fields.
 func (m Model) Values() []string { return append([]string(nil), m.values...) }
@@ -332,11 +351,11 @@ func (m Model) formView() string {
 		}
 	}
 	if m.spec.Body {
-		prefix, style := "", lipgloss.NewStyle()
+		view := m.body.View()
 		if m.bodyFocused() {
-			prefix, style = "› ", m.SelectedStyle
+			view = m.SelectedStyle.Render(view)
 		}
-		lines = append(lines, zones.Mark(zones.ModalBody, style.Render(prefix+"Body: "+m.cursorText(m.body, m.bodyPos, m.bodyFocused()))))
+		lines = append(lines, zones.Mark(zones.ModalBody, view))
 	}
 	if len(m.spec.Cycle) > 0 {
 		target := m.spec.Cycle[min(m.cycle, len(m.spec.Cycle)-1)]
@@ -388,6 +407,25 @@ func (m Model) optionsFocused() bool {
 
 func (m Model) bodyFocused() bool { return m.spec.Body && m.focus == len(m.values) }
 
+func (m *Model) syncBodyFocus() {
+	if !m.spec.Body {
+		return
+	}
+	if m.bodyFocused() {
+		m.body.Focus()
+		return
+	}
+	m.body.Blur()
+}
+
+func (m *Model) resizeBody() {
+	if !m.spec.Body {
+		return
+	}
+	width := max(20, min(72, m.Width-8))
+	m.body.SetWidth(max(10, width-4))
+}
+
 func (m Model) focusable() int {
 	total := len(m.values)
 	if m.spec.Body {
@@ -401,7 +439,7 @@ func (m Model) focusable() int {
 
 func (m *Model) insertFocused(value string) {
 	if m.bodyFocused() {
-		m.body, m.bodyPos = insertText(m.body, m.bodyPos, value)
+		m.body, _ = m.body.Update(tea.PasteMsg{Content: value})
 	} else if m.focus >= 0 && m.focus < len(m.values) {
 		m.values[m.focus], m.cursors[m.focus] = insertText(m.values[m.focus], m.cursors[m.focus], value)
 	}

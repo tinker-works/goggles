@@ -89,6 +89,15 @@ func TestModel_View_ShouldNotCallClosedEpicsAnEmptyBoard(t *testing.T) {
 	}
 }
 
+func TestModel_View_ShouldExplainClosedOnlyBoardsAtNarrowWidths(t *testing.T) {
+	zones.Init()
+	m := New().SetEpics([]netomatic.Epic{{ID: "closed", Title: "Old idea", State: "Closed"}})
+	view := m.View(theme.Default(), nil, statusline.Model{}, 60, 30, boardNow)
+	if strings.Contains(view, "No epics yet.") || !strings.Contains(view, "No open epics.") {
+		t.Fatalf("closed epics rendered as an empty narrow board: %s", view)
+	}
+}
+
 func TestModel_View_ShouldRenderListAndZoomColumns(t *testing.T) {
 	zones.Init()
 	m := loadedBoard()

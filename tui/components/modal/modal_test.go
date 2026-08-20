@@ -157,6 +157,22 @@ func TestFormBody_ShouldRenderAndAcceptMouseFocus(t *testing.T) {
 	}
 }
 
+func TestFormBody_ShouldRenderAFiveRowTextareaAndNavigateLines(t *testing.T) {
+	m := NewForm(Spec{ID: "epic", Body: true, Submit: "Create"}, theme.Default(), 80)
+	m, _ = m.Update(tea.PasteMsg{Content: "first\nsecond"})
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyUp}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Text: "!", Code: '!'}))
+
+	if view := m.View(); lipgloss.Height(view) < 7 {
+		t.Fatalf("expected a five-row body textarea, got:\n%s", view)
+	}
+	_, cmd := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	msg, ok := cmd().(SubmittedMsg)
+	if !ok || msg.Body != "first!\nsecond" {
+		t.Fatalf("unexpected multiline submission: %#v", msg)
+	}
+}
+
 func TestFormText_ShouldEditAtTheCursor(t *testing.T) {
 	m := NewForm(Spec{ID: "project", Fields: []Field{{Prompt: "Name", Value: "ac"}}}, theme.Default(), 80)
 	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyLeft}))

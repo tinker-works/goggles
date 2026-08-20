@@ -367,7 +367,10 @@ func issueMeta(issue viewmodel.BoardIssue, inner int) string {
 }
 
 func (m Model) narrowBody(th theme.Theme, width, budget int, now time.Time) string {
-	if len(m.Epics) == 0 {
+	if len(m.lanes) == 0 {
+		if len(m.Epics) > 0 {
+			return panel.Render(th, "BOARD", th.Muted.Render("No open epics."), width, budget, false)
+		}
 		return panel.Render(th, "BOARD", emptyBoard(th), width, budget, false)
 	}
 	inner := panel.ContentWidth(width)
