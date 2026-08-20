@@ -23,6 +23,8 @@ type Zone struct {
 
 var global = New()
 
+const HeaderProject = "header-project"
+
 // Init resets the package-level manager used by components that do not own a
 // screen-level manager.
 func Init() { global = New() }
@@ -44,6 +46,20 @@ func Bounds(id string) (int, int, bool) {
 
 // EpicTreeRow is the stable ID for an issue-tree row.
 func EpicTreeRow(index int) string { return "epic-tree-row-" + strconv.Itoa(index) }
+
+func AttentionRow(index int) string { return "attention-" + strconv.Itoa(index) }
+
+func ProjectRow(index int) string { return "project-row-" + strconv.Itoa(index) }
+
+func OrganisationRow(index int) string { return "organisation-row-" + strconv.Itoa(index) }
+
+func BoardEpicCard(index int) string { return "board-epic-" + strconv.Itoa(index) }
+
+func BoardIssueCard(lane, column, index int) string {
+	return "board-issue-" + strconv.Itoa(lane) + "-" + strconv.Itoa(column) + "-" + strconv.Itoa(index)
+}
+
+func BoardRunnerRow(index int) string { return "board-runner-" + strconv.Itoa(index) }
 
 // InBounds reports whether a mouse event is inside the zone.
 func (z Zone) InBounds(msg tea.MouseMsg) bool {

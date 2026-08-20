@@ -7,6 +7,7 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/tinker-works/goggles/tui/theme"
 )
 
 // Model stores tab labels and the active tab.
@@ -89,4 +90,13 @@ func (m *Model) clamp() {
 	if m.Active >= len(m.Items) {
 		m.Active = len(m.Items) - 1
 	}
+}
+
+// Render is the compact helper used by screen headers.
+func Render(th theme.Theme, items []string, active int) string {
+	model := New(items...)
+	model.ActiveStyle = th.Accent
+	model.InactiveStyle = th.Muted
+	model.SetActive(active)
+	return model.View()
 }

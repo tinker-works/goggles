@@ -7,6 +7,28 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+// Tier is a responsive terminal-width band.
+type Tier uint8
+
+const (
+	TierNarrow Tier = iota
+	TierMedium
+	TierWide
+)
+
+func Of(width int) Tier {
+	switch {
+	case width < 90:
+		return TierNarrow
+	case width < 110:
+		return TierMedium
+	default:
+		return TierWide
+	}
+}
+
+func RailWidth(width int) int { return Clamp(width*3/10, 33, 42) }
+
 // Size is a terminal rectangle.
 type Size struct {
 	Width  int

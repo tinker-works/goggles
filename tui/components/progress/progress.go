@@ -9,6 +9,21 @@ import (
 	"charm.land/lipgloss/v2"
 )
 
+const DefaultCells = 8
+
+// Bar renders a compact count-based progress indicator.
+func Bar(done, total, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	if total <= 0 {
+		return strings.Repeat("░", width)
+	}
+	done = max(0, min(done, total))
+	filled := int(math.Round(float64(width) * float64(done) / float64(total)))
+	return strings.Repeat("█", filled) + strings.Repeat("░", width-filled)
+}
+
 // Model stores progress state.
 type Model struct {
 	Width          int
