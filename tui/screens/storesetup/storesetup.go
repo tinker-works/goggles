@@ -60,6 +60,7 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 func (m *Model) Resize(width int) { m.form.Resize(width) }
 
 func (m Model) SetPool(th theme.Theme, pool []string, width int) (Model, tea.Cmd) {
+	busy := m.spec.Busy
 	ticked := map[string]bool{}
 	checked := m.form.Checked()
 	for i, repository := range m.pool {
@@ -74,6 +75,7 @@ func (m Model) SetPool(th theme.Theme, pool []string, width int) (Model, tea.Cmd
 	}
 	values := m.form.Values()
 	m.spec = Spec(m.pool, next, field(values, FieldModel), field(values, FieldVariant))
+	m.spec.Busy = busy
 	return m.rebuild(th, width)
 }
 

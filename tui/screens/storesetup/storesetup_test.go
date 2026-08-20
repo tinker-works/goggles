@@ -50,6 +50,16 @@ func TestModel_SetPool_ShouldPreserveTypedValuesAndNamedChecks(t *testing.T) {
 	}
 }
 
+func TestModel_SetPool_ShouldKeepTheFormBusyWhileSubmitting(t *testing.T) {
+	m := setupScreen(t)
+	m, _ = m.Submitting(setupTheme(), setupWidth)
+	m, _ = m.SetPool(setupTheme(), []string{"acme/widgets"}, setupWidth)
+	_, cmd := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	if cmd != nil {
+		t.Fatal("repository discovery re-enabled a submitting form")
+	}
+}
+
 func TestModel_Failed_ShouldRouteRepositoryErrorsToTheForm(t *testing.T) {
 	m := setupScreen(t)
 	m, _ = m.SetPool(setupTheme(), []string{"other/repo"}, setupWidth)
