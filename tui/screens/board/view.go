@@ -94,8 +94,11 @@ func (m Model) header(th theme.Theme, project *netomatic.Project, status statusl
 		left += th.Accent.Render("  by " + m.GroupBy.String())
 	}
 	filterValue := m.Filter.Value()
-	if filterValue != "" {
+	if m.Filter.Active || filterValue != "" {
 		left += th.Selected.Render("  /" + filterValue)
+		if m.Filter.Active {
+			left += th.Selected.Render("▏")
+		}
 	}
 	return text.Justify(left, status.View(), width)
 }
@@ -489,14 +492,14 @@ func (m Model) skeleton(th theme.Theme, width int) string {
 }
 
 func (m Model) Footer(th theme.Theme, width int) string {
-	if m.Filter.Value() != "" {
+	if m.Filter.Active || m.Filter.Value() != "" {
 		return th.Muted.Render("filter: " + m.Filter.Value() + "   enter apply   esc clear")
 	}
 	return th.Muted.Render(text.Truncate("j/k move   enter open   g group   / filter   r reload   ? keys", width))
 }
 
 func (m Model) ZoomFooter(th theme.Theme, width int) string {
-	if m.Filter.Value() != "" {
+	if m.Filter.Active || m.Filter.Value() != "" {
 		return th.Muted.Render("filter: " + m.Filter.Value() + "   enter apply   esc clear")
 	}
 	return th.Muted.Render(text.Truncate("j/k move   h/l column   J/K epic   esc back   ? keys", width))

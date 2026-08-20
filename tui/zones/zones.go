@@ -62,6 +62,7 @@ func EpicTreeRow(index int) string { return "epic-tree-row-" + strconv.Itoa(inde
 
 func ModalField(index int) string  { return "modal-field-" + strconv.Itoa(index) }
 func ModalOption(index int) string { return "modal-option-" + strconv.Itoa(index) }
+func ModalChoice(index int) string { return "modal-choice-" + strconv.Itoa(index) }
 
 func AttentionRow(index int) string { return "attention-" + strconv.Itoa(index) }
 

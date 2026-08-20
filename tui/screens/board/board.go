@@ -237,6 +237,10 @@ func (m Model) ApplyFilterKey(msg tea.KeyPressMsg) Model {
 		m.Filter = filter.Model{}
 		return m.rebuild().clamp()
 	}
+	if msg.Text == "" && msg.Code == tea.KeyEnter {
+		m.Filter.Active = false
+		return m.rebuild().clamp()
+	}
 	m.Filter, _ = m.Filter.Update(msg)
 	return m.rebuild().clamp()
 }

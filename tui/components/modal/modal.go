@@ -58,17 +58,19 @@ func Open(spec Spec) tea.Cmd {
 
 // Model is a modal panel. Parent models decide what a close event means.
 type Model struct {
-	Title      string
-	Content    string
-	Width      int
-	Height     int
-	Visible    bool
-	Style      lipgloss.Style
-	TitleStyle lipgloss.Style
+	Title         string
+	Content       string
+	Width         int
+	Height        int
+	Visible       bool
+	Style         lipgloss.Style
+	TitleStyle    lipgloss.Style
+	SelectedStyle lipgloss.Style
 
 	spec    Spec
 	form    bool
 	focus   int
+	choice  int
 	values  []string
 	checked []bool
 }
@@ -76,7 +78,7 @@ type Model struct {
 // New creates a hidden content modal.
 func New(title, content string) Model {
 	t := theme.Default()
-	return Model{Title: title, Content: content, Visible: false, Style: t.Panel, TitleStyle: t.Title}
+	return Model{Title: title, Content: content, Visible: false, Style: t.Panel, TitleStyle: t.Title, SelectedStyle: t.Selected}
 }
 
 // NewForm creates a form model owned by a screen.
@@ -87,8 +89,9 @@ func NewForm(spec Spec, t theme.Theme, width int) Model {
 	}
 	checked := make([]bool, len(spec.Options))
 	copy(checked, spec.Checked)
-	return Model{Width: width, Style: t.Panel, TitleStyle: t.Title,
-		spec: spec, form: true, values: values, checked: checked}
+	choice := max(0, min(spec.Selected, max(0, len(spec.Choices)-1)))
+	return Model{Width: width, Style: t.Panel, TitleStyle: t.Title, SelectedStyle: t.Selected,
+		spec: spec, form: true, choice: choice, values: values, checked: checked}
 }
 
 // Show opens the modal with content.
@@ -120,6 +123,11 @@ func (m Model) updateForm(msg tea.Msg) (Model, tea.Cmd) {
 		return m.updateFormKey(msg)
 	case tea.MouseClickMsg:
 		return m.updateFormMouse(msg)
+	case tea.PasteMsg:
+		if !m.spec.Busy && m.focus >= 0 && m.focus < len(m.values) {
+			m.values[m.focus] += msg.Content
+		}
+		return m, nil
 	default:
 		return m, nil
 	}
@@ -148,6 +156,17 @@ func (m Model) updateFormKey(keyMsg tea.KeyPressMsg) (Model, tea.Cmd) {
 	}
 	if key.Matches(keyMsg, key.NewBinding(key.WithKeys("enter"))) {
 		return m, m.submit()
+	}
+	if len(m.spec.Choices) > 0 {
+		if key.Matches(keyMsg, key.NewBinding(key.WithKeys("up", "k"))) {
+			m.choice = max(0, m.choice-1)
+			return m, nil
+		}
+		if key.Matches(keyMsg, key.NewBinding(key.WithKeys("down", "j"))) {
+			m.choice = min(len(m.spec.Choices)-1, m.choice+1)
+			return m, nil
+		}
+		return m, nil
 	}
 	if m.spec.Busy {
 		return m, nil
@@ -181,6 +200,12 @@ func (m Model) updateFormMouse(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 	if zones.In(mouse, zones.ModalSubmit) {
 		return m, m.submit()
 	}
+	for i := range m.spec.Choices {
+		if zones.In(mouse, zones.ModalChoice(i)) {
+			m.choice = i
+			return m, nil
+		}
+	}
 	for i := range m.spec.Options {
 		if zones.In(mouse, zones.ModalOption(i)) {
 			m.focus = len(m.values) + i
@@ -210,8 +235,9 @@ func (m Model) submit() tea.Cmd {
 			options = append(options, m.spec.Options[i])
 		}
 	}
+	choice := m.choice
 	return func() tea.Msg {
-		return SubmittedMsg{ID: m.spec.ID, Values: values, Options: options}
+		return SubmittedMsg{ID: m.spec.ID, Values: values, Options: options, Choice: choice}
 	}
 }
 
@@ -256,6 +282,13 @@ func (m Model) formView() string {
 	}
 	if m.spec.Message != "" {
 		lines = append(lines, m.spec.Message)
+	}
+	for i, choice := range m.spec.Choices {
+		prefix, style := "  ", lipgloss.NewStyle()
+		if i == m.choice {
+			prefix, style = "› ", m.SelectedStyle
+		}
+		lines = append(lines, zones.Mark(zones.ModalChoice(i), style.Render(prefix+choice)))
 	}
 	for i, field := range m.spec.Fields {
 		value := ""

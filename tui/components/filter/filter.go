@@ -10,7 +10,8 @@ import (
 
 // Model is a focused filter input.
 type Model struct {
-	Input textinput.Model
+	Active bool
+	Input  textinput.Model
 }
 
 // New creates a filter with the supplied placeholder.
@@ -20,17 +21,23 @@ func New(placeholder string) Model {
 	input.Placeholder = placeholder
 	input.CharLimit = 256
 	input.Focus()
-	return Model{Input: input}
+	return Model{Active: true, Input: input}
 }
 
 // NewModel is an alias useful to callers that use Model constructors by name.
 func NewModel() Model { return New("filter") }
 
 // Focus gives the input keyboard focus.
-func (m *Model) Focus() tea.Cmd { return m.Input.Focus() }
+func (m *Model) Focus() tea.Cmd {
+	m.Active = true
+	return m.Input.Focus()
+}
 
 // Blur removes keyboard focus.
-func (m *Model) Blur() { m.Input.Blur() }
+func (m *Model) Blur() {
+	m.Active = false
+	m.Input.Blur()
+}
 
 // SetValue sets the current filter.
 func (m *Model) SetValue(value string) { m.Input.SetValue(value) }

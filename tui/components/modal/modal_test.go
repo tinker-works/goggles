@@ -1,6 +1,7 @@
 package modal
 
 import (
+	"strings"
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
@@ -61,5 +62,29 @@ func TestFormMouse_ShouldFocusFieldsToggleOptionsAndSubmit(t *testing.T) {
 	msg, ok := cmd().(SubmittedMsg)
 	if !ok || msg.Values[1] != "v" || len(msg.Options) != 1 || msg.Options[0] != "acme/widgets" {
 		t.Fatalf("unexpected mouse submission: %#v", msg)
+	}
+}
+
+func TestFormChoice_ShouldRenderSelectAndSubmitTheChoice(t *testing.T) {
+	zones.Init()
+	m := NewForm(Spec{ID: "switch", Title: "Switch", Choices: []string{"one", "two"}, Submit: "Open"}, theme.Default(), 80)
+	view := zones.Scan(m.View())
+	if !strings.Contains(view, "one") || !strings.Contains(view, "two") {
+		t.Fatalf("expected choices in the modal: %q", view)
+	}
+
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyDown}))
+	_, cmd := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	msg, ok := cmd().(SubmittedMsg)
+	if !ok || msg.Choice != 1 {
+		t.Fatalf("unexpected choice submission: %#v", msg)
+	}
+}
+
+func TestFormPaste_ShouldAppendToTheFocusedField(t *testing.T) {
+	m := NewForm(Spec{ID: "setup", Fields: []Field{{Prompt: "Model"}}}, theme.Default(), 80)
+	m, _ = m.Update(tea.PasteMsg{Content: "provider/model"})
+	if values := m.Values(); len(values) != 1 || values[0] != "provider/model" {
+		t.Fatalf("unexpected pasted value: %v", values)
 	}
 }
