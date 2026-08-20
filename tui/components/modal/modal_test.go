@@ -187,6 +187,19 @@ func TestFormText_ShouldEditAtTheCursor(t *testing.T) {
 	}
 }
 
+func TestFormText_ShouldLimitAndScrollLongValues(t *testing.T) {
+	m := NewForm(Spec{ID: "project", Fields: []Field{{Prompt: "Name"}}}, theme.Default(), 40)
+	m, _ = m.Update(tea.PasteMsg{Content: strings.Repeat("a", 201)})
+	if values := m.Values(); len(values) != 1 || len([]rune(values[0])) != fieldCharLimit {
+		t.Fatalf("expected %d-rune value, got %q", fieldCharLimit, values)
+	}
+	for _, line := range strings.Split(m.View(), "\n") {
+		if width := lipgloss.Width(line); width > 32 {
+			t.Fatalf("modal line exceeds its bounded width (%d): %q", width, line)
+		}
+	}
+}
+
 func TestFormWithoutSubmitLabel_ShouldRenderMouseControls(t *testing.T) {
 	zones.Init()
 	m := NewForm(Spec{ID: "state", Choices: []string{"Ready"}}, theme.Default(), 80)

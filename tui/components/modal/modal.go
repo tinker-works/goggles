@@ -12,6 +12,8 @@ import (
 	"github.com/tinker-works/goggles/tui/zones"
 )
 
+const fieldCharLimit = 200
+
 // Field is one text input in a modal specification.
 type Field struct {
 	Prompt string
@@ -98,8 +100,8 @@ func NewForm(spec Spec, t theme.Theme, width int) Model {
 	values := make([]string, len(spec.Fields))
 	cursors := make([]int, len(spec.Fields))
 	for i, field := range spec.Fields {
-		values[i] = field.Value
-		cursors[i] = len([]rune(field.Value))
+		values[i] = truncateRunes(field.Value, fieldCharLimit)
+		cursors[i] = len([]rune(values[i]))
 	}
 	checked := make([]bool, len(spec.Options))
 	copy(checked, spec.Checked)
@@ -345,7 +347,7 @@ func (m Model) formView() string {
 		if i < len(m.values) {
 			value = m.values[i]
 		}
-		lines = append(lines, zones.Mark(zones.ModalField(i), field.Prompt+": "+m.cursorText(value, m.cursors[i], m.focus == i)))
+		lines = append(lines, zones.Mark(zones.ModalField(i), field.Prompt+": "+m.cursorText(value, m.cursors[i], m.focus == i, m.fieldWidth(field.Prompt))))
 		if errorText := m.spec.FieldError(i); errorText != "" {
 			lines = append(lines, errorText)
 		}
@@ -426,6 +428,11 @@ func (m *Model) resizeBody() {
 	m.body.SetWidth(max(10, width-4))
 }
 
+func (m Model) fieldWidth(prompt string) int {
+	width := max(20, min(72, m.Width-8))
+	return max(1, width-lipgloss.Width(prompt)-4)
+}
+
 func (m Model) focusable() int {
 	total := len(m.values)
 	if m.spec.Body {
@@ -445,21 +452,39 @@ func (m *Model) insertFocused(value string) {
 	}
 }
 
-func (m Model) cursorText(value string, position int, focused bool) string {
-	if !focused || m.spec.Busy {
-		return value
-	}
+func (m Model) cursorText(value string, position int, focused bool, width int) string {
 	runes := []rune(value)
 	position = max(0, min(position, len(runes)))
-	return string(runes[:position]) + "▏" + string(runes[position:])
+	start, end := 0, len(runes)
+	if focused && !m.spec.Busy {
+		start = position
+		for start > 0 && lipgloss.Width(string(runes[start-1:position])) < width {
+			start--
+		}
+		end = position
+		for end < len(runes) && lipgloss.Width(string(runes[start:end+1])) < width {
+			end++
+		}
+		return string(runes[start:position]) + "▏" + string(runes[position:end])
+	}
+	for end > start && lipgloss.Width(string(runes[start:end])) > width {
+		end--
+	}
+	return string(runes[start:end])
 }
 
 func insertText(value string, position int, inserted string) (string, int) {
 	runes := []rune(value)
 	position = max(0, min(position, len(runes)))
 	insertedRunes := []rune(inserted)
-	value = string(runes[:position]) + inserted + string(runes[position:])
+	insertedRunes = insertedRunes[:min(len(insertedRunes), max(0, fieldCharLimit-len(runes)))]
+	value = string(runes[:position]) + string(insertedRunes) + string(runes[position:])
 	return value, position + len(insertedRunes)
+}
+
+func truncateRunes(value string, limit int) string {
+	runes := []rune(value)
+	return string(runes[:min(len(runes), limit)])
 }
 
 func editText(value string, position int, keyMsg tea.KeyPressMsg) (string, int) {
