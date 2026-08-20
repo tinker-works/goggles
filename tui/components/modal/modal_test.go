@@ -155,3 +155,28 @@ func TestFormBody_ShouldRenderAndAcceptMouseFocus(t *testing.T) {
 		t.Fatalf("unexpected body mouse submission: %#v", msg)
 	}
 }
+
+func TestFormText_ShouldEditAtTheCursor(t *testing.T) {
+	m := NewForm(Spec{ID: "project", Fields: []Field{{Prompt: "Name", Value: "ac"}}}, theme.Default(), 80)
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyLeft}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Text: "b", Code: 'b'}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyHome}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Text: "z", Code: 'z'}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyDelete}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnd}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyBackspace}))
+	if values := m.Values(); len(values) != 1 || values[0] != "zb" {
+		t.Fatalf("unexpected cursor edit: %v", values)
+	}
+}
+
+func TestFormWithoutSubmitLabel_ShouldRenderMouseControls(t *testing.T) {
+	zones.Init()
+	m := NewForm(Spec{ID: "state", Choices: []string{"Ready"}}, theme.Default(), 80)
+	zones.Scan(m.View())
+	for _, zone := range []string{zones.ModalSubmit, zones.ModalCancel} {
+		if _, _, ok := zones.Bounds(zone); !ok {
+			t.Fatalf("expected %s zone", zone)
+		}
+	}
+}

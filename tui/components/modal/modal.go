@@ -80,8 +80,10 @@ type Model struct {
 	choice  int
 	option  int
 	values  []string
+	cursors []int
 	checked []bool
 	body    string
+	bodyPos int
 	cycle   int
 }
 
@@ -94,14 +96,16 @@ func New(title, content string) Model {
 // NewForm creates a form model owned by a screen.
 func NewForm(spec Spec, t theme.Theme, width int) Model {
 	values := make([]string, len(spec.Fields))
+	cursors := make([]int, len(spec.Fields))
 	for i, field := range spec.Fields {
 		values[i] = field.Value
+		cursors[i] = len([]rune(field.Value))
 	}
 	checked := make([]bool, len(spec.Options))
 	copy(checked, spec.Checked)
 	choice := max(0, min(spec.Selected, max(0, len(spec.Choices)-1)))
 	return Model{Width: width, Style: t.Panel, TitleStyle: t.Title, SelectedStyle: t.Selected,
-		spec: spec, form: true, choice: choice, values: values, checked: checked}
+		spec: spec, form: true, choice: choice, values: values, cursors: cursors, checked: checked}
 }
 
 // Show opens the modal with content.
@@ -135,7 +139,7 @@ func (m Model) updateForm(msg tea.Msg) (Model, tea.Cmd) {
 		return m.updateFormMouse(msg)
 	case tea.PasteMsg:
 		if !m.spec.Busy {
-			m.appendFocused(msg.Content)
+			m.insertFocused(msg.Content)
 		}
 		return m, nil
 	default:
@@ -200,11 +204,11 @@ func (m Model) updateFormKey(keyMsg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	if m.bodyFocused() {
-		m.body = editText(m.body, keyMsg)
+		m.body, m.bodyPos = editText(m.body, m.bodyPos, keyMsg)
 		return m, nil
 	}
 	if m.focus >= 0 && m.focus < len(m.values) {
-		m.values[m.focus] = editText(m.values[m.focus], keyMsg)
+		m.values[m.focus], m.cursors[m.focus] = editText(m.values[m.focus], m.cursors[m.focus], keyMsg)
 	}
 	return m, nil
 }
@@ -322,7 +326,7 @@ func (m Model) formView() string {
 		if i < len(m.values) {
 			value = m.values[i]
 		}
-		lines = append(lines, zones.Mark(zones.ModalField(i), field.Prompt+": "+value))
+		lines = append(lines, zones.Mark(zones.ModalField(i), field.Prompt+": "+m.cursorText(value, m.cursors[i], m.focus == i)))
 		if errorText := m.spec.FieldError(i); errorText != "" {
 			lines = append(lines, errorText)
 		}
@@ -332,7 +336,7 @@ func (m Model) formView() string {
 		if m.bodyFocused() {
 			prefix, style = "› ", m.SelectedStyle
 		}
-		lines = append(lines, zones.Mark(zones.ModalBody, style.Render(prefix+"Body: "+m.body)))
+		lines = append(lines, zones.Mark(zones.ModalBody, style.Render(prefix+"Body: "+m.cursorText(m.body, m.bodyPos, m.bodyFocused()))))
 	}
 	if len(m.spec.Cycle) > 0 {
 		target := m.spec.Cycle[min(m.cycle, len(m.spec.Cycle)-1)]
@@ -359,17 +363,22 @@ func (m Model) formView() string {
 	if errorText := m.spec.FormError(); errorText != "" {
 		lines = append(lines, errorText)
 	}
-	if m.spec.Submit != "" {
-		submit := m.spec.Submit
-		if m.spec.Busy {
-			submit += "…"
-		}
-		lines = append(lines, zones.Mark(zones.ModalSubmit, submit))
-		if !m.spec.Forced {
-			lines = append(lines, zones.Mark(zones.ModalCancel, "Cancel"))
-		}
+	submit := m.submitLabel()
+	if m.spec.Busy {
+		submit += "…"
+	}
+	lines = append(lines, zones.Mark(zones.ModalSubmit, submit))
+	if !m.spec.Forced {
+		lines = append(lines, zones.Mark(zones.ModalCancel, "Cancel"))
 	}
 	return strings.Join(lines, "\n")
+}
+
+func (m Model) submitLabel() string {
+	if m.spec.Submit != "" {
+		return m.spec.Submit
+	}
+	return "Submit"
 }
 
 func (m Model) optionsFocused() bool {
@@ -389,25 +398,56 @@ func (m Model) focusable() int {
 	return total
 }
 
-func (m *Model) appendFocused(value string) {
+func (m *Model) insertFocused(value string) {
 	if m.bodyFocused() {
-		m.body += value
+		m.body, m.bodyPos = insertText(m.body, m.bodyPos, value)
 	} else if m.focus >= 0 && m.focus < len(m.values) {
-		m.values[m.focus] += value
+		m.values[m.focus], m.cursors[m.focus] = insertText(m.values[m.focus], m.cursors[m.focus], value)
 	}
 }
 
-func editText(value string, keyMsg tea.KeyPressMsg) string {
-	if keyMsg.Text != "" {
-		return value + keyMsg.Text
+func (m Model) cursorText(value string, position int, focused bool) string {
+	if !focused || m.spec.Busy {
+		return value
 	}
-	if keyMsg.Code == tea.KeyBackspace {
-		runes := []rune(value)
-		if len(runes) > 0 {
-			return string(runes[:len(runes)-1])
+	runes := []rune(value)
+	position = max(0, min(position, len(runes)))
+	return string(runes[:position]) + "▏" + string(runes[position:])
+}
+
+func insertText(value string, position int, inserted string) (string, int) {
+	runes := []rune(value)
+	position = max(0, min(position, len(runes)))
+	insertedRunes := []rune(inserted)
+	value = string(runes[:position]) + inserted + string(runes[position:])
+	return value, position + len(insertedRunes)
+}
+
+func editText(value string, position int, keyMsg tea.KeyPressMsg) (string, int) {
+	runes := []rune(value)
+	position = max(0, min(position, len(runes)))
+	if keyMsg.Text != "" {
+		return insertText(value, position, keyMsg.Text)
+	}
+	switch keyMsg.Code {
+	case tea.KeyLeft:
+		return value, max(0, position-1)
+	case tea.KeyRight:
+		return value, min(len(runes), position+1)
+	case tea.KeyHome:
+		return value, 0
+	case tea.KeyEnd:
+		return value, len(runes)
+	case tea.KeyBackspace:
+		if position > 0 {
+			return string(runes[:position-1]) + string(runes[position:]), position - 1
+		}
+	case tea.KeyDelete:
+		if position < len(runes) {
+			return string(runes[:position]) + string(runes[position+1:]), position
 		}
 	}
-	return value
+	return value, position
 }
 
 // WithError returns a copy with an error attached to a field or the form.

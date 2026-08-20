@@ -42,7 +42,7 @@ func TestCommentTargets_ShouldUsePublicTargetKinds(t *testing.T) {
 }
 
 func TestRunners_ShouldNotUseTheTrackerIdentifierAsTheSubject(t *testing.T) {
-	runs := Runners([]netomatic.AgentRun{{ID: "run", Project: "tracker", Status: "running"}},
+	runs := Runners([]netomatic.AgentRun{{ID: "run", Project: "Checkout rewrite", Status: "running"}},
 		[]netomatic.Epic{{ID: "epic", Title: "Checkout rewrite"}}, time.Time{})
 	if len(runs) != 1 || runs[0].Subject != "run" {
 		t.Fatalf("unexpected run subject: %+v", runs)

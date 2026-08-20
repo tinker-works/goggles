@@ -64,21 +64,19 @@ func TestModel_RecordActivity_ShouldUseGrowthBetweenSamples(t *testing.T) {
 	}
 }
 
-func TestModel_View_ShouldMatchLiveRunnerByItsPresentationSubject(t *testing.T) {
+func TestModel_View_ShouldNotTreatTrackerAsRunnerSubject(t *testing.T) {
 	zones.Init()
-	m := loadedBoard()
-	m.Runners = []viewmodel.Runner{{
-		Run:     netomatic.AgentRun{ID: "run", Agent: "coding", Project: "tracker", Status: "running"},
-		Subject: "Checkout rewrite",
-	}}
+	m := loadedBoard().SetRuns([]netomatic.AgentRun{{
+		ID: "run", Agent: "coding", Project: "Checkout rewrite", Status: "running",
+	}}, boardNow)
 	view := m.View(theme.Default(), &netomatic.Project{Name: "tracker"}, statusline.Model{}, 140, 30, boardNow)
-	if !strings.Contains(view, "⚙") {
-		t.Fatalf("expected the live runner indicator in the matching epic: %s", view)
+	if strings.Contains(view, "⚙") {
+		t.Fatalf("tracker identifier was treated as an epic subject: %s", view)
 	}
 
 	zoom := m.Zoom().ZoomView(theme.Default(), &netomatic.Project{Name: "tracker"}, statusline.Model{}, 140, 30, boardNow)
-	if !strings.Contains(zoom, "⚙") {
-		t.Fatalf("expected runner details in the matching epic: %s", zoom)
+	if strings.Contains(zoom, "⚙") {
+		t.Fatalf("tracker identifier was treated as an epic subject: %s", zoom)
 	}
 }
 
