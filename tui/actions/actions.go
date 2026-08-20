@@ -200,6 +200,20 @@ func SetBranchPrefix(client netomatic.Client, project netomatic.Project, epicID,
 	})
 }
 
+func ApproveEpic(client netomatic.Client, project netomatic.Project, epicID, prefix string) tea.Cmd {
+	return track(func() tea.Msg {
+		if client == nil {
+			return unavailable("Approving epics")
+		}
+		_, err := client.PrefixEpic(context.Background(), netomatic.PrefixEpicRequest{Project: projectKey(project), Epic: epicID, Prefix: prefix})
+		if err != nil {
+			return FinishedMsg{Status: "Branch prefix saved", Err: err, Reload: ReloadEpic, EpicID: epicID}
+		}
+		_, err = client.TransitionEpic(context.Background(), netomatic.TransitionEpicRequest{Project: projectKey(project), Epic: epicID, Status: "Ready"})
+		return FinishedMsg{Status: "Epic state set to Ready", Err: err, Reload: ReloadEpic, EpicID: epicID}
+	})
+}
+
 func CreateIssue(client netomatic.Client, project netomatic.Project, epicID, parentID, title, body, repository string) tea.Cmd {
 	return track(func() tea.Msg {
 		if client == nil {

@@ -199,14 +199,10 @@ func ForceState(epic *netomatic.Epic) modal.Spec {
 	return modal.Spec{ID: ModalForceState, Title: "Force epic state (debug)", Explain: "Skips the state machine. For an epic the loop has stranded; the loop may not expect what this produces.", Choices: choices, Selected: selected}
 }
 
-func ResolveSubmit(client netomatic.Client, project netomatic.Project, ctx Context, msg modal.SubmittedMsg, currentUsers ...string) tea.Cmd {
-	author := ""
-	if len(currentUsers) > 0 {
-		author = currentUsers[0]
-	}
+func ResolveSubmit(client netomatic.Client, project netomatic.Project, ctx Context, msg modal.SubmittedMsg, _ ...string) tea.Cmd {
 	switch msg.ID {
 	case ModalEpic:
-		return actions.CreateEpic(client, project, valueAt(msg.Values, 0), author, msg.Body, valueAt(msg.Values, 1), msg.Options)
+		return actions.CreateEpic(client, project, valueAt(msg.Values, 0), "", msg.Body, valueAt(msg.Values, 1), msg.Options)
 	case ModalBranchPrefix:
 		if ctx.Epic == nil {
 			return nil
@@ -215,7 +211,7 @@ func ResolveSubmit(client netomatic.Client, project netomatic.Project, ctx Conte
 		if !ctx.ReadyOnSubmit {
 			return save
 		}
-		return tea.Sequence(save, actions.TransitionEpic(client, project, ctx.Epic.ID, "Ready"))
+		return actions.ApproveEpic(client, project, ctx.Epic.ID, valueAt(msg.Values, 0))
 	case ModalIssue:
 		if ctx.Epic == nil {
 			return nil

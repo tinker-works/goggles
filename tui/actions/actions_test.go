@@ -27,7 +27,9 @@ type actionClient struct {
 	issueErr      error
 	issueCalls    int
 
-	transitionCalls int
+	transitionRequest netomatic.TransitionEpicRequest
+	transitionErr     error
+	transitionCalls   int
 }
 
 func (c *actionClient) CreateEpic(_ context.Context, request netomatic.CreateEpicRequest) (netomatic.CreateEpicResponse, error) {
@@ -48,9 +50,10 @@ func (c *actionClient) CreateIssue(_ context.Context, request netomatic.CreateIs
 	return c.issueResponse, c.issueErr
 }
 
-func (c *actionClient) TransitionEpic(_ context.Context, _ netomatic.TransitionEpicRequest) (netomatic.TransitionEpicResponse, error) {
+func (c *actionClient) TransitionEpic(_ context.Context, request netomatic.TransitionEpicRequest) (netomatic.TransitionEpicResponse, error) {
 	c.transitionCalls++
-	return netomatic.TransitionEpicResponse{}, nil
+	c.transitionRequest = request
+	return netomatic.TransitionEpicResponse{}, c.transitionErr
 }
 
 type actionCommandModel struct {
@@ -114,6 +117,28 @@ func TestCreateEpic_ShouldSendSupportedFieldsAndPrefix(t *testing.T) {
 	}
 	if client.prefixRequest != (netomatic.PrefixEpicRequest{Project: "demo", Epic: "epic-1", Prefix: "feature"}) {
 		t.Fatalf("unexpected prefix request: %+v", client.prefixRequest)
+	}
+}
+
+func TestApproveEpic_ShouldNotTransitionWhenPrefixSaveFails(t *testing.T) {
+	prefixErr := errors.New("invalid prefix")
+	client := &actionClient{prefixErr: prefixErr}
+
+	msg := runFinished(t, ApproveEpic(client, netomatic.Project{Name: "demo"}, "epic-1", "feature"))
+	if !errors.Is(msg.Err, prefixErr) || client.prefixCalls != 1 || client.transitionCalls != 0 {
+		t.Fatalf("expected prefix failure to stop approval: msg=%+v prefixCalls=%d transitionCalls=%d", msg, client.prefixCalls, client.transitionCalls)
+	}
+}
+
+func TestApproveEpic_ShouldTransitionAfterSavingPrefix(t *testing.T) {
+	client := &actionClient{}
+
+	msg := runFinished(t, ApproveEpic(client, netomatic.Project{Name: "demo"}, "epic-1", "feature"))
+	if msg.Err != nil || client.prefixCalls != 1 || client.transitionCalls != 1 {
+		t.Fatalf("unexpected approval result: msg=%+v prefixCalls=%d transitionCalls=%d", msg, client.prefixCalls, client.transitionCalls)
+	}
+	if client.transitionRequest != (netomatic.TransitionEpicRequest{Project: "demo", Epic: "epic-1", Status: "Ready"}) {
+		t.Fatalf("unexpected transition request: %+v", client.transitionRequest)
 	}
 }
 
