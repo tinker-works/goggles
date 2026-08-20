@@ -167,7 +167,7 @@ func legalTransitions(state string) []string {
 	case "done":
 		return []string{"Closed", "Failed"}
 	case "failed":
-		return []string{"Concept"}
+		return []string{"Concept", "Closed"}
 	default:
 		return nil
 	}

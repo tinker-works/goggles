@@ -120,12 +120,28 @@ func TestCreateEpic_ShouldSendSupportedFieldsAndPrefix(t *testing.T) {
 	}
 }
 
+func TestCreateEpic_ShouldExposeCreatedEpicWhenPrefixSaveFails(t *testing.T) {
+	prefixErr := errors.New("invalid prefix")
+	client := &actionClient{
+		epicResponse: netomatic.CreateEpicResponse{Epic: netomatic.Epic{ID: "epic-1"}},
+		prefixErr:    prefixErr,
+	}
+
+	msg := runFinished(t, CreateEpic(client, netomatic.Project{Name: "demo"}, "Epic", "", "body", "feature", nil))
+	if !errors.Is(msg.Err, prefixErr) || msg.Status != "Epic created, but branch prefix was not saved" || msg.Reload != ReloadEpics || msg.EpicID != "epic-1" || !msg.ReloadOnError {
+		t.Fatalf("expected partial creation recovery details: msg=%+v", msg)
+	}
+	if client.epicCalls != 1 || client.prefixCalls != 1 {
+		t.Fatalf("expected one create and one prefix call: epicCalls=%d prefixCalls=%d", client.epicCalls, client.prefixCalls)
+	}
+}
+
 func TestApproveEpic_ShouldNotTransitionWhenPrefixSaveFails(t *testing.T) {
 	prefixErr := errors.New("invalid prefix")
 	client := &actionClient{prefixErr: prefixErr}
 
 	msg := runFinished(t, ApproveEpic(client, netomatic.Project{Name: "demo"}, "epic-1", "feature"))
-	if !errors.Is(msg.Err, prefixErr) || client.prefixCalls != 1 || client.transitionCalls != 0 {
+	if !errors.Is(msg.Err, prefixErr) || msg.Status != "Epic approval stopped; branch prefix was not saved" || client.prefixCalls != 1 || client.transitionCalls != 0 {
 		t.Fatalf("expected prefix failure to stop approval: msg=%+v prefixCalls=%d transitionCalls=%d", msg, client.prefixCalls, client.transitionCalls)
 	}
 }
@@ -139,6 +155,19 @@ func TestApproveEpic_ShouldTransitionAfterSavingPrefix(t *testing.T) {
 	}
 	if client.transitionRequest != (netomatic.TransitionEpicRequest{Project: "demo", Epic: "epic-1", Status: "Ready"}) {
 		t.Fatalf("unexpected transition request: %+v", client.transitionRequest)
+	}
+}
+
+func TestApproveEpic_ShouldReloadAfterPrefixSaveWhenTransitionFails(t *testing.T) {
+	transitionErr := errors.New("cannot set Ready")
+	client := &actionClient{transitionErr: transitionErr}
+
+	msg := runFinished(t, ApproveEpic(client, netomatic.Project{Name: "demo"}, "epic-1", "feature"))
+	if !errors.Is(msg.Err, transitionErr) || !msg.ReloadOnError || msg.Status != "Branch prefix saved, but epic could not be set to Ready" {
+		t.Fatalf("expected durable prefix save to be recoverable: msg=%+v", msg)
+	}
+	if client.prefixCalls != 1 || client.transitionCalls != 1 {
+		t.Fatalf("expected prefix and transition calls: prefixCalls=%d transitionCalls=%d", client.prefixCalls, client.transitionCalls)
 	}
 }
 

@@ -4,6 +4,7 @@ package actions
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"strconv"
 
@@ -63,8 +64,11 @@ type FinishedMsg struct {
 	Err    error
 	Reload Reload
 	EpicID string
-	Synced bool
-	Silent bool
+	// ReloadOnError keeps durable partial mutations visible when the follow-up
+	// operation fails and the caller normally skips reloads for errors.
+	ReloadOnError bool
+	Synced        bool
+	Silent        bool
 }
 
 type ProjectsLoadedMsg struct {
@@ -181,12 +185,24 @@ func CreateEpic(client netomatic.Client, project netomatic.Project, title, assig
 		response, err := client.CreateEpic(context.Background(), netomatic.CreateEpicRequest{
 			Project: projectKey(project), Title: title, Description: body,
 		})
-		if err == nil && branchPrefix != "" {
+		if err != nil {
+			return FinishedMsg{Status: "Epic could not be created", Err: err}
+		}
+		if branchPrefix != "" {
 			_, err = client.PrefixEpic(context.Background(), netomatic.PrefixEpicRequest{
 				Project: projectKey(project), Epic: response.Epic.ID, Prefix: branchPrefix,
 			})
+			if err != nil {
+				return FinishedMsg{
+					Status:        "Epic created, but branch prefix was not saved",
+					Err:           fmt.Errorf("epic %q was created but branch prefix could not be saved: %w", response.Epic.ID, err),
+					Reload:        ReloadEpics,
+					EpicID:        response.Epic.ID,
+					ReloadOnError: true,
+				}
+			}
 		}
-		return FinishedMsg{Status: "Epic created", Err: err, Reload: ReloadEpics}
+		return FinishedMsg{Status: "Epic created", Reload: ReloadEpics}
 	})
 }
 
@@ -207,10 +223,19 @@ func ApproveEpic(client netomatic.Client, project netomatic.Project, epicID, pre
 		}
 		_, err := client.PrefixEpic(context.Background(), netomatic.PrefixEpicRequest{Project: projectKey(project), Epic: epicID, Prefix: prefix})
 		if err != nil {
-			return FinishedMsg{Status: "Branch prefix saved", Err: err, Reload: ReloadEpic, EpicID: epicID}
+			return FinishedMsg{Status: "Epic approval stopped; branch prefix was not saved", Err: err, Reload: ReloadEpic, EpicID: epicID}
 		}
 		_, err = client.TransitionEpic(context.Background(), netomatic.TransitionEpicRequest{Project: projectKey(project), Epic: epicID, Status: "Ready"})
-		return FinishedMsg{Status: "Epic state set to Ready", Err: err, Reload: ReloadEpic, EpicID: epicID}
+		if err != nil {
+			return FinishedMsg{
+				Status:        "Branch prefix saved, but epic could not be set to Ready",
+				Err:           err,
+				Reload:        ReloadEpic,
+				EpicID:        epicID,
+				ReloadOnError: true,
+			}
+		}
+		return FinishedMsg{Status: "Epic state set to Ready", Reload: ReloadEpic, EpicID: epicID}
 	})
 }
 

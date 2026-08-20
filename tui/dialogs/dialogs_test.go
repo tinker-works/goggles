@@ -59,6 +59,13 @@ func TestState_ShouldOfferOnlyKnownTransitionsAndForceEscape(t *testing.T) {
 	}
 }
 
+func TestState_ShouldAllowClosingFailedEpics(t *testing.T) {
+	_, states := State(&netomatic.Epic{State: "Failed"})
+	if !hasState(states, "Closed") {
+		t.Fatalf("expected failed epics to offer Closed, got %v", states)
+	}
+}
+
 func TestComment_ShouldCycleIssueAndMatchingPullRequests(t *testing.T) {
 	spec, targets := Comment(&netomatic.Epic{PullRequests: []netomatic.PullRequest{{ID: "pr", IssueID: "issue", Title: "Fix"}}}, "issue")
 	if len(targets) != 2 || len(spec.Cycle) != 2 || targets[1].Kind != netomatic.PullRequestCommentTarget {
@@ -77,4 +84,13 @@ func TestResolveSubmit_ShouldNotTreatTheCurrentUserAsAnEpicAssignee(t *testing.T
 	if client.request != (netomatic.CreateEpicRequest{Project: "demo", Title: "Epic", Description: "body"}) {
 		t.Fatalf("unexpected create request: %+v", client.request)
 	}
+}
+
+func hasState(values []string, want string) bool {
+	for _, value := range values {
+		if value == want {
+			return true
+		}
+	}
+	return false
 }
