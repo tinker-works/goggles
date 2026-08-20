@@ -284,7 +284,7 @@ func (m Model) hasRunner(lane viewmodel.Lane) bool {
 		if !runner.Live() {
 			continue
 		}
-		if lane.Epic != nil && runner.Run.Project == lane.Epic.ID {
+		if lane.Epic != nil && runner.Subject == lane.Title {
 			return true
 		}
 		if lane.Epic == nil && runner.Subject == lane.Title {
@@ -296,7 +296,7 @@ func (m Model) hasRunner(lane viewmodel.Lane) bool {
 
 func (m Model) runnerFor(lane viewmodel.Lane) (viewmodel.Runner, bool) {
 	for _, runner := range m.Runners {
-		if lane.Epic != nil && runner.Run.Project == lane.Epic.ID {
+		if lane.Epic != nil && runner.Subject == lane.Title {
 			return runner, true
 		}
 	}

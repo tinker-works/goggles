@@ -32,6 +32,15 @@ func TestFormBusy_ShouldRefuseASecondSubmit(t *testing.T) {
 	}
 }
 
+func TestFormEscape_ShouldEmitCancellationForCancellableForms(t *testing.T) {
+	m := NewForm(Spec{ID: "add-project", Fields: []Field{{Prompt: "Name"}}}, theme.Default(), 80)
+	_, cmd := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEscape}))
+	msg, ok := cmd().(CancelledMsg)
+	if !ok || msg.ID != "add-project" {
+		t.Fatalf("unexpected cancellation: %#v", msg)
+	}
+}
+
 func TestFormMouse_ShouldFocusFieldsToggleOptionsAndSubmit(t *testing.T) {
 	zones.Init()
 	m := NewForm(Spec{ID: "setup", Fields: []Field{{Prompt: "Model"}, {Prompt: "Variant"}},

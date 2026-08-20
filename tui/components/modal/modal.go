@@ -48,12 +48,19 @@ type SubmittedMsg struct {
 	Cycle   int
 }
 
+// CancelledMsg is emitted when the user dismisses a cancellable form.
+type CancelledMsg struct{ ID string }
+
 // OpenMsg asks the root model to replace the current modal with Spec.
 type OpenMsg struct{ Spec Spec }
 
 // Open returns a command that opens a modal specification.
 func Open(spec Spec) tea.Cmd {
 	return func() tea.Msg { return OpenMsg{Spec: spec} }
+}
+
+func cancel(id string) tea.Cmd {
+	return func() tea.Msg { return CancelledMsg{ID: id} }
 }
 
 // Model is a modal panel. Parent models decide what a close event means.
@@ -137,7 +144,7 @@ func (m Model) updateForm(msg tea.Msg) (Model, tea.Cmd) {
 func (m Model) updateFormKey(keyMsg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if key.Matches(keyMsg, key.NewBinding(key.WithKeys("esc"))) {
 		if !m.spec.Forced {
-			return m, func() tea.Msg { return nil }
+			return m, cancel(m.spec.ID)
 		}
 		return m, nil
 	}
