@@ -45,6 +45,20 @@ func Bounds(id string) (int, int, bool) {
 // EpicTreeRow is the stable ID for an issue-tree row.
 func EpicTreeRow(index int) string { return "epic-tree-row-" + strconv.Itoa(index) }
 
+const (
+	CommentBox        = "comment-box"
+	EpicDetailPane    = "epic-detail-pane"
+	EpicOutputPane    = "epic-output-pane"
+	ConversationPane  = "conversation-pane"
+	DiffPane          = "diff-pane"
+	MergeButton       = "merge-button"
+	SettingsRowPrefix = "settings-row-"
+)
+
+func DiffFile(index int) string    { return "diff-file-" + strconv.Itoa(index) }
+func RunRow(index int) string      { return "run-row-" + strconv.Itoa(index) }
+func SettingsRow(index int) string { return SettingsRowPrefix + strconv.Itoa(index) }
+
 // InBounds reports whether a mouse event is inside the zone.
 func (z Zone) InBounds(msg tea.MouseMsg) bool {
 	if msg == nil || z.StartX > z.EndX || z.StartY > z.EndY {

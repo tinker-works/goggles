@@ -51,23 +51,26 @@ type Theme struct {
 	IsDark  bool
 	Palette Palette
 
-	Base     lipgloss.Style
-	Title    lipgloss.Style
-	Subtitle lipgloss.Style
-	Text     lipgloss.Style
-	Muted    lipgloss.Style
-	Subtle   lipgloss.Style
-	Accent   lipgloss.Style
-	Border   lipgloss.Style
-	Panel    lipgloss.Style
-	Selected lipgloss.Style
-	Success  lipgloss.Style
-	Warning  lipgloss.Style
-	Error    lipgloss.Style
-	Code     lipgloss.Style
-	Help     lipgloss.Style
-	Body     lipgloss.Style
-	Tool     lipgloss.Style
+	Base            lipgloss.Style
+	Title           lipgloss.Style
+	Subtitle        lipgloss.Style
+	Text            lipgloss.Style
+	Muted           lipgloss.Style
+	Subtle          lipgloss.Style
+	Accent          lipgloss.Style
+	Border          lipgloss.Style
+	Panel           lipgloss.Style
+	Selected        lipgloss.Style
+	Success         lipgloss.Style
+	Warning         lipgloss.Style
+	Error           lipgloss.Style
+	Code            lipgloss.Style
+	Help            lipgloss.Style
+	Body            lipgloss.Style
+	Tool            lipgloss.Style
+	PanelEdge       lipgloss.Style
+	PanelEdgeActive lipgloss.Style
+	SubtleText      lipgloss.Style
 }
 
 // New constructs a theme using the optional palette. The string/bool form is
@@ -91,26 +94,50 @@ func New(args ...any) Theme {
 		}
 	}
 	return Theme{
-		Name:     name,
-		IsDark:   isDark,
-		Palette:  p,
-		Base:     lipgloss.NewStyle().Foreground(p.Foreground).Background(p.Background),
-		Title:    lipgloss.NewStyle().Bold(true).Foreground(p.Primary),
-		Subtitle: lipgloss.NewStyle().Foreground(p.Secondary),
-		Text:     lipgloss.NewStyle().Foreground(p.Foreground),
-		Muted:    lipgloss.NewStyle().Foreground(p.Muted),
-		Subtle:   lipgloss.NewStyle().Foreground(p.Subtle),
-		Accent:   lipgloss.NewStyle().Bold(true).Foreground(p.Accent),
-		Border:   lipgloss.NewStyle().BorderForeground(p.Border),
-		Panel:    lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(p.Border).Padding(0, 1),
-		Selected: lipgloss.NewStyle().Bold(true).Foreground(p.Primary),
-		Success:  lipgloss.NewStyle().Foreground(p.Success),
-		Warning:  lipgloss.NewStyle().Foreground(p.Warning),
-		Error:    lipgloss.NewStyle().Foreground(p.Error),
-		Code:     lipgloss.NewStyle().Foreground(p.Secondary),
-		Help:     lipgloss.NewStyle().Foreground(p.Muted),
-		Body:     lipgloss.NewStyle().Foreground(p.Foreground),
-		Tool:     lipgloss.NewStyle().Foreground(p.Secondary),
+		Name:            name,
+		IsDark:          isDark,
+		Palette:         p,
+		Base:            lipgloss.NewStyle().Foreground(p.Foreground).Background(p.Background),
+		Title:           lipgloss.NewStyle().Bold(true).Foreground(p.Primary),
+		Subtitle:        lipgloss.NewStyle().Foreground(p.Secondary),
+		Text:            lipgloss.NewStyle().Foreground(p.Foreground),
+		Muted:           lipgloss.NewStyle().Foreground(p.Muted),
+		Subtle:          lipgloss.NewStyle().Foreground(p.Subtle),
+		Accent:          lipgloss.NewStyle().Bold(true).Foreground(p.Accent),
+		Border:          lipgloss.NewStyle().BorderForeground(p.Border),
+		Panel:           lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(p.Border).Padding(0, 1),
+		PanelEdge:       lipgloss.NewStyle().Foreground(p.Border),
+		PanelEdgeActive: lipgloss.NewStyle().Foreground(p.Accent),
+		Selected:        lipgloss.NewStyle().Bold(true).Foreground(p.Primary),
+		Success:         lipgloss.NewStyle().Foreground(p.Success),
+		Warning:         lipgloss.NewStyle().Foreground(p.Warning),
+		Error:           lipgloss.NewStyle().Foreground(p.Error),
+		Code:            lipgloss.NewStyle().Foreground(p.Secondary),
+		Help:            lipgloss.NewStyle().Foreground(p.Muted),
+		Body:            lipgloss.NewStyle().Foreground(p.Foreground),
+		Tool:            lipgloss.NewStyle().Foreground(p.Secondary),
+		SubtleText:      lipgloss.NewStyle().Foreground(p.Subtle),
+	}
+}
+
+// PaletteInfo is the presentation metadata shown by the settings screen.
+type PaletteInfo struct {
+	Name        string
+	Description string
+}
+
+func Names() []string {
+	return []string{DefaultPaletteName, "nord", "gruvbox", "dracula", "solarized", "mono"}
+}
+
+func Palettes() []PaletteInfo {
+	return []PaletteInfo{
+		{Name: DefaultPaletteName, Description: "goggles default palette"},
+		{Name: "nord", Description: "cool blue contrast"},
+		{Name: "gruvbox", Description: "warm earthy contrast"},
+		{Name: "dracula", Description: "deep purple contrast"},
+		{Name: "solarized", Description: "low-contrast reading"},
+		{Name: "mono", Description: "terminal-native monochrome"},
 	}
 }
 
@@ -258,7 +285,7 @@ func Swatch(name string, isDark bool) string {
 	if value, ok := swatchCache[key]; ok {
 		return value
 	}
-	th := New()
+	th := New(name, isDark)
 	states := []string{"Concept", "Refine", "Review", "Ready", "Done", "Failed"}
 	var out strings.Builder
 	for _, state := range states {

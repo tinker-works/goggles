@@ -2,6 +2,8 @@
 package panel
 
 import (
+	"strings"
+
 	"charm.land/lipgloss/v2"
 	"github.com/tinker-works/goggles/tui/theme"
 )
@@ -20,6 +22,35 @@ type Model struct {
 func New(title string) Model {
 	t := theme.Default()
 	return Model{Title: title, Style: t.Panel, TitleStyle: t.Title}
+}
+
+// ContentWidth returns the usable width inside a bordered panel.
+func ContentWidth(width int) int { return max(1, width-4) }
+
+// ContentHeight returns the usable height inside a bordered panel.
+func ContentHeight(height int) int { return max(1, height-2) }
+
+// Render is the value-oriented form used by screens that render a panel for one
+// frame rather than retaining a panel model.
+func Render(th theme.Theme, title, content string, width, height int, focused bool) string {
+	style := th.Panel
+	if focused {
+		style = style.BorderForeground(th.Palette.Accent)
+	}
+	m := Model{Title: title, Content: content, Style: style, TitleStyle: th.Title}
+	m.SetSize(width, height)
+	view := m.View()
+	if height <= 0 {
+		return view
+	}
+	rows := strings.Split(view, "\n")
+	if len(rows) > height {
+		rows = rows[:height]
+	}
+	for len(rows) < height {
+		rows = append(rows, "")
+	}
+	return strings.Join(rows, "\n")
 }
 
 // SetContent updates the panel body.

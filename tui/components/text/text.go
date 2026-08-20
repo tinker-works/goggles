@@ -63,3 +63,29 @@ func Truncate(content string, width int) string {
 	}
 	return ansi.Truncate(content, width, "…")
 }
+
+// Lines wraps content into display rows without styling it.
+func Lines(content string, width int) []string {
+	return strings.Split(Fit(content, width), "\n")
+}
+
+// Pad truncates content to width and right-pads it when it is shorter.
+func Pad(content string, width int) string {
+	content = Truncate(content, width)
+	return content + strings.Repeat(" ", max(0, width-lipgloss.Width(content)))
+}
+
+// Justify places left and right content on one width-limited row.
+func Justify(left, right string, width int) string {
+	space := max(1, width-lipgloss.Width(left)-lipgloss.Width(right))
+	return left + strings.Repeat(" ", space) + right
+}
+
+// Fit keeps every row within width while retaining explicit line breaks.
+func Fit(content string, width int) string {
+	lines := strings.Split(content, "\n")
+	for i, line := range lines {
+		lines[i] = Pad(line, width)
+	}
+	return strings.Join(lines, "\n")
+}

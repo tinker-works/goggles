@@ -7,7 +7,21 @@ import (
 	"charm.land/bubbles/v2/key"
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
+	"github.com/tinker-works/goggles/tui/theme"
 )
+
+// Render is the compact, stateless tab-strip form used by screens.
+func Render(th theme.Theme, labels []string, active int) string {
+	parts := make([]string, len(labels))
+	for i, label := range labels {
+		style := th.Muted
+		if i == active {
+			style = th.Accent
+		}
+		parts[i] = "[ " + style.Render(label) + " ]"
+	}
+	return strings.Join(parts, "  ")
+}
 
 // Model stores tab labels and the active tab.
 type Model struct {
