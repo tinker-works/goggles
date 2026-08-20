@@ -40,7 +40,21 @@ func (m Model) Value() string { return m.Input.Value() }
 
 // Matches reports whether value passes the current filter.
 func (m Model) Matches(value string) bool {
-	return strings.Contains(strings.ToLower(value), strings.ToLower(strings.TrimSpace(m.Value())))
+	return Matches(m.Value(), value)
+}
+
+// Matches reports whether any candidate contains the case-insensitive filter.
+func Matches(filter string, candidates ...string) bool {
+	filter = strings.ToLower(strings.TrimSpace(filter))
+	if filter == "" {
+		return true
+	}
+	for _, candidate := range candidates {
+		if strings.Contains(strings.ToLower(candidate), filter) {
+			return true
+		}
+	}
+	return false
 }
 
 // Update handles text input messages.

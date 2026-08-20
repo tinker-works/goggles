@@ -55,3 +55,11 @@ func Wrap(content string, width int) string {
 	}
 	return strings.Join(lines, "\n")
 }
+
+// Truncate shortens content to a display width, adding tail when needed.
+func Truncate(content string, width int) string {
+	if width <= 0 {
+		return ""
+	}
+	return ansi.Truncate(content, width, "…")
+}

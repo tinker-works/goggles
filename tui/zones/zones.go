@@ -3,6 +3,7 @@ package zones
 
 import (
 	"sort"
+	"strconv"
 	"sync"
 	"unicode/utf8"
 
@@ -19,6 +20,30 @@ type Zone struct {
 	EndX   int
 	EndY   int
 }
+
+var global = New()
+
+// Init resets the package-level manager used by components that do not own a
+// screen-level manager.
+func Init() { global = New() }
+
+// Mark registers a package-level marker.
+func Mark(id, content string) string { return global.Mark(id, content) }
+
+// Scan removes package-level markers and records their bounds.
+func Scan(view string) string { return global.Scan(view) }
+
+// Bounds returns the package-level zone origin as x, y, and ok.
+func Bounds(id string) (int, int, bool) {
+	zone, ok := global.Get(id)
+	if !ok {
+		return 0, 0, false
+	}
+	return zone.StartX, zone.StartY, true
+}
+
+// EpicTreeRow is the stable ID for an issue-tree row.
+func EpicTreeRow(index int) string { return "epic-tree-row-" + strconv.Itoa(index) }
 
 // InBounds reports whether a mouse event is inside the zone.
 func (z Zone) InBounds(msg tea.MouseMsg) bool {

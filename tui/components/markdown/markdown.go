@@ -14,8 +14,15 @@ type Model struct {
 	Style  string
 }
 
-// New creates a markdown model.
-func New(source string) Model { return Model{Source: source, Style: "dark"} }
+// New creates a markdown model. An omitted source creates an empty reusable
+// renderer for callers that set each body before rendering.
+func New(sources ...string) Model {
+	source := ""
+	if len(sources) > 0 {
+		source = sources[0]
+	}
+	return Model{Source: source, Style: "dark"}
+}
 
 // SetWidth sets the markdown word-wrap width.
 func (m *Model) SetWidth(width int) { m.Width = width }

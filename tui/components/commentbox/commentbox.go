@@ -21,7 +21,7 @@ type Model struct {
 
 // New creates a comment box using the default theme.
 func New() Model {
-	t := theme.Default
+	t := theme.Default()
 	return Model{
 		Style:  t.Panel,
 		Header: t.Subtitle.Bold(true),

@@ -10,6 +10,7 @@ require (
 	github.com/charmbracelet/harmonica v0.2.0
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/lrstanley/bubblezone v1.0.0
+	github.com/tinker-works/donsy v0.0.0-20260820132336-b74f2786ae8a
 )
 
 require (

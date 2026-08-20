@@ -18,7 +18,7 @@ type Model struct {
 
 // New creates a panel with default theme styles.
 func New(title string) Model {
-	t := theme.Default
+	t := theme.Default()
 	return Model{Title: title, Style: t.Panel, TitleStyle: t.Title}
 }
 

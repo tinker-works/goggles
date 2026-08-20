@@ -8,6 +8,47 @@ import (
 	"github.com/tinker-works/goggles/tui/theme"
 )
 
+// Field is one text input in a modal specification.
+type Field struct {
+	Prompt string
+	Value  string
+}
+
+// Spec describes a form or confirmation dialog. Screens own the submitted
+// values; this package only carries the presentation contract.
+type Spec struct {
+	ID            string
+	Title         string
+	Explain       string
+	Message       string
+	Fields        []Field
+	Body          bool
+	Submit        string
+	Options       []string
+	OptionsPrompt string
+	Choices       []string
+	Selected      int
+	Cycle         []string
+}
+
+// SubmittedMsg is emitted by a form implementation after the user submits it.
+type SubmittedMsg struct {
+	ID      string
+	Values  []string
+	Body    string
+	Options []string
+	Choice  int
+	Cycle   int
+}
+
+// OpenMsg asks the root model to replace the current modal with Spec.
+type OpenMsg struct{ Spec Spec }
+
+// Open returns a command that opens a modal specification.
+func Open(spec Spec) tea.Cmd {
+	return func() tea.Msg { return OpenMsg{Spec: spec} }
+}
+
 // Model is a modal panel. Parent models decide what a close event means.
 type Model struct {
 	Title      string
@@ -21,7 +62,7 @@ type Model struct {
 
 // New creates a hidden modal.
 func New(title, content string) Model {
-	t := theme.Default
+	t := theme.Default()
 	return Model{Title: title, Content: content, Visible: false, Style: t.Panel, TitleStyle: t.Title}
 }
 

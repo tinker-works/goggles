@@ -25,12 +25,12 @@ type Model struct {
 }
 
 // New creates a hidden toast.
-func New() Model { return Model{Style: theme.Default.Panel} }
+func New() Model { return Model{Style: theme.Default().Panel} }
 
 // Show displays message with kind.
 func (m *Model) Show(message string, kind Kind) {
 	m.Message, m.Kind, m.Visible = message, kind, true
-	t := theme.Default
+	t := theme.Default()
 	switch kind {
 	case Success:
 		m.Style = t.Panel.BorderForeground(t.Palette.Success)
