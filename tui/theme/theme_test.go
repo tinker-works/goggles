@@ -11,3 +11,10 @@ func TestDefaultThemeHasGeneralStyles(t *testing.T) {
 		t.Fatal("general styles rendered empty output")
 	}
 }
+
+func TestWithPalettePreservesBackgroundMode(t *testing.T) {
+	light := New(DefaultPalette(), false)
+	if got := light.WithPalette(DefaultPalette()); got.IsDark {
+		t.Fatal("custom palette should preserve the light background mode")
+	}
+}

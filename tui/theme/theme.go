@@ -120,7 +120,7 @@ func Default() Theme { return New() }
 // WithPalette returns a copy using palette while preserving the style layout.
 func (t Theme) WithPalette(value any) Theme {
 	if palette, ok := value.(Palette); ok {
-		return New(palette)
+		return New(palette, t.IsDark)
 	}
 	if name, ok := value.(string); ok {
 		return New(name, t.IsDark)

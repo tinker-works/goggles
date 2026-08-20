@@ -190,7 +190,7 @@ func groupedLanes(epics []netomatic.Epic, filter string, by grouping) []Lane {
 	for _, epic := range epics {
 		epicMatches := matches(filter, epic.Title, epic.Assignee)
 		for _, key := range by.epicKeys(epic) {
-			if epicMatches {
+			if epicMatches || matches(filter, key) {
 				lane(key, epic.State).Matched = true
 			} else {
 				lane(key, epic.State)

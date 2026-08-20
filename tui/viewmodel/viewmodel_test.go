@@ -26,6 +26,13 @@ func TestBoardLanes_ShouldUsePublicIssueStates(t *testing.T) {
 	}
 }
 
+func TestBoardLanes_ShouldMatchRepositoryScopedDraftingLane(t *testing.T) {
+	lanes := BoardLanes([]netomatic.Epic{{ID: "e", Repositories: []string{"repo-a"}}}, GroupByRepository, "repo-a")
+	if len(lanes) != 1 || lanes[0].Key != "repo-a" || !lanes[0].Matched {
+		t.Fatalf("expected repository lane to match its scope, got %+v", lanes)
+	}
+}
+
 func TestCommentTargets_ShouldUsePublicTargetKinds(t *testing.T) {
 	targets := CommentTargets(&netomatic.Epic{PullRequests: []netomatic.PullRequest{{ID: "pr", IssueID: "issue", Title: "Fix"}}}, "issue")
 	if len(targets) != 2 || targets[1].Kind != netomatic.PullRequestCommentTarget {

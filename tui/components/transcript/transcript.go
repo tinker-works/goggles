@@ -97,7 +97,7 @@ func entryLines(entry Entry, width int) []Line {
 	case Error:
 		return wrap(entry.Kind, "! "+entry.Text, width)
 	case Unknown:
-		return []Line{{Kind: entry.Kind, Text: "unknown json output"}}
+		return wrap(entry.Kind, "unknown json output", width)
 	default:
 		return wrap(entry.Kind, entry.Text, width)
 	}
@@ -126,8 +126,8 @@ func outputLines(entry Entry, width int) []Line {
 		lines = append(lines, wrap(entry.Kind, "  "+line, width)...)
 	}
 	if withheld := len(source) - len(kept); withheld > 0 {
-		lines = append(lines, Line{Kind: entry.Kind,
-			Text: fmt.Sprintf("  … %s not shown", plural(withheld, "line"))})
+		lines = append(lines, wrap(entry.Kind,
+			fmt.Sprintf("  … %s not shown", plural(withheld, "line")), width)...)
 	}
 	return lines
 }
