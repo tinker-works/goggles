@@ -81,6 +81,29 @@ func TestFormChoice_ShouldRenderSelectAndSubmitTheChoice(t *testing.T) {
 	}
 }
 
+func TestFormOptions_ShouldNavigateWithinTheChecklist(t *testing.T) {
+	m := NewForm(Spec{ID: "setup", Fields: []Field{{Prompt: "Model"}, {Prompt: "Variant"}},
+		Options: []string{"acme/widgets", "acme/gadgets"}, OptionsPrompt: "Repositories"}, theme.Default(), 80)
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyTab}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyTab}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeySpace}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyDown}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeySpace}))
+
+	_, cmd := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	msg, ok := cmd().(SubmittedMsg)
+	if !ok || len(msg.Options) != 2 || msg.Options[0] != "acme/widgets" || msg.Options[1] != "acme/gadgets" {
+		t.Fatalf("unexpected checklist submission: %#v", msg)
+	}
+}
+
+func TestFormOptions_ShouldRenderThePrompt(t *testing.T) {
+	m := NewForm(Spec{ID: "setup", Options: []string{"acme/widgets"}, OptionsPrompt: "Repositories"}, theme.Default(), 80)
+	if view := zones.Scan(m.View()); !strings.Contains(view, "Repositories") {
+		t.Fatalf("expected checklist prompt in modal: %q", view)
+	}
+}
+
 func TestFormPaste_ShouldAppendToTheFocusedField(t *testing.T) {
 	m := NewForm(Spec{ID: "setup", Fields: []Field{{Prompt: "Model"}}}, theme.Default(), 80)
 	m, _ = m.Update(tea.PasteMsg{Content: "provider/model"})

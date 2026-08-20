@@ -71,6 +71,7 @@ type Model struct {
 	form    bool
 	focus   int
 	choice  int
+	option  int
 	values  []string
 	checked []bool
 }
@@ -141,14 +142,20 @@ func (m Model) updateFormKey(keyMsg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	if key.Matches(keyMsg, key.NewBinding(key.WithKeys("tab"))) {
-		focusable := len(m.values) + len(m.checked)
+		focusable := len(m.values)
+		if len(m.checked) > 0 {
+			focusable++
+		}
 		if focusable > 0 {
 			m.focus = (m.focus + 1) % focusable
 		}
 		return m, nil
 	}
 	if key.Matches(keyMsg, key.NewBinding(key.WithKeys("shift+tab"))) {
-		focusable := len(m.values) + len(m.checked)
+		focusable := len(m.values)
+		if len(m.checked) > 0 {
+			focusable++
+		}
 		if focusable > 0 {
 			m.focus = (m.focus + focusable - 1) % focusable
 		}
@@ -168,16 +175,21 @@ func (m Model) updateFormKey(keyMsg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	if m.spec.Busy {
+	if m.optionsFocused() {
+		if key.Matches(keyMsg, key.NewBinding(key.WithKeys("up", "k"))) {
+			m.option = max(0, m.option-1)
+			return m, nil
+		}
+		if key.Matches(keyMsg, key.NewBinding(key.WithKeys("down", "j"))) {
+			m.option = min(len(m.checked)-1, m.option+1)
+			return m, nil
+		}
+		if key.Matches(keyMsg, key.NewBinding(key.WithKeys("space"))) {
+			m.checked[m.option] = !m.checked[m.option]
+		}
 		return m, nil
 	}
-	if key.Matches(keyMsg, key.NewBinding(key.WithKeys("space"))) && len(m.checked) > 0 {
-		if m.focus >= len(m.values) {
-			index := m.focus - len(m.values)
-			if index >= 0 && index < len(m.checked) {
-				m.checked[index] = !m.checked[index]
-			}
-		}
+	if m.spec.Busy {
 		return m, nil
 	}
 	if m.focus >= 0 && m.focus < len(m.values) {
@@ -208,7 +220,8 @@ func (m Model) updateFormMouse(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 	}
 	for i := range m.spec.Options {
 		if zones.In(mouse, zones.ModalOption(i)) {
-			m.focus = len(m.values) + i
+			m.focus = len(m.values)
+			m.option = i
 			if i < len(m.checked) {
 				m.checked[i] = !m.checked[i]
 			}
@@ -301,11 +314,22 @@ func (m Model) formView() string {
 		}
 	}
 	for i, option := range m.spec.Options {
+		if i == 0 {
+			prompt := m.spec.OptionsPrompt
+			if prompt == "" {
+				prompt = "Options"
+			}
+			lines = append(lines, prompt)
+		}
 		mark := " "
 		if i < len(m.checked) && m.checked[i] {
 			mark = "x"
 		}
-		lines = append(lines, zones.Mark(zones.ModalOption(i), "["+mark+"] "+option))
+		prefix, style := "  ", lipgloss.NewStyle()
+		if m.optionsFocused() && i == m.option {
+			prefix, style = "› ", m.SelectedStyle
+		}
+		lines = append(lines, zones.Mark(zones.ModalOption(i), style.Render(prefix+"["+mark+"] "+option)))
 	}
 	if errorText := m.spec.FormError(); errorText != "" {
 		lines = append(lines, errorText)
@@ -318,6 +342,10 @@ func (m Model) formView() string {
 		lines = append(lines, zones.Mark(zones.ModalSubmit, submit))
 	}
 	return strings.Join(lines, "\n")
+}
+
+func (m Model) optionsFocused() bool {
+	return len(m.spec.Options) > 0 && m.focus == len(m.values)
 }
 
 // WithError returns a copy with an error attached to a field or the form.
