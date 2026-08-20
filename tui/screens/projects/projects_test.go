@@ -52,6 +52,16 @@ func TestModel_View_ShouldRenderSummariesAndDaemonTimestamp(t *testing.T) {
 	}
 }
 
+func TestModel_View_ShouldRenderMissingTimestampsWithoutAnOpenedPrefix(t *testing.T) {
+	projects := []netomatic.Project{{ID: 1, Name: "acme", LastOpenedAt: "not-a-timestamp"}}
+	m := New().SetOrganisations([]netomatic.Organisation{{Name: "acme"}})
+	zones.Init()
+	view := m.View(projectTheme(), statusline.Model{}, projects, 120, 30, time.Now())
+	if strings.Contains(view, "opened never opened") || !strings.Contains(view, "never opened") {
+		t.Fatalf("unexpected missing timestamp rendering: %q", view)
+	}
+}
+
 func TestModel_Error_ShouldStayAttachedToTheSelectedProject(t *testing.T) {
 	m := New().SetOrganisations([]netomatic.Organisation{{Name: "acme"}}).Fail(2, errProjectOpen{})
 	zones.Init()

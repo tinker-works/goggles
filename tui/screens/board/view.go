@@ -129,6 +129,9 @@ func (m Model) listBody(th theme.Theme, width, budget int, status statusline.Mod
 		if status.IsLoading() {
 			return panel.Render(th, "BOARD", m.skeleton(th, width), width, budget, false)
 		}
+		if len(m.Epics) > 0 {
+			return panel.Render(th, "BOARD", th.Muted.Render("No open epics."), width, budget, false)
+		}
 		return panel.Render(th, "BOARD", emptyBoard(th), width, budget, false)
 	}
 	inner := panel.ContentWidth(width)
@@ -492,14 +495,14 @@ func (m Model) skeleton(th theme.Theme, width int) string {
 }
 
 func (m Model) Footer(th theme.Theme, width int) string {
-	if m.Filter.Active || m.Filter.Value() != "" {
+	if m.Filter.Active {
 		return th.Muted.Render("filter: " + m.Filter.Value() + "   enter apply   esc clear")
 	}
 	return th.Muted.Render(text.Truncate("j/k move   enter open   g group   / filter   r reload   ? keys", width))
 }
 
 func (m Model) ZoomFooter(th theme.Theme, width int) string {
-	if m.Filter.Active || m.Filter.Value() != "" {
+	if m.Filter.Active {
 		return th.Muted.Render("filter: " + m.Filter.Value() + "   enter apply   esc clear")
 	}
 	return th.Muted.Render(text.Truncate("j/k move   h/l column   J/K epic   esc back   ? keys", width))

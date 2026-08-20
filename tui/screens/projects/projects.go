@@ -295,7 +295,7 @@ func (m Model) row(th theme.Theme, project netomatic.Project, index, width int, 
 	nameWidth := min(24, max(12, width/3))
 	name := style.Render(text.Pad(project.Name, nameWidth))
 	summary := text.Pad(m.summaryOf(th, project), min(26, max(14, width/3)))
-	recency := th.Muted.Render("opened " + projectAge(project, now))
+	recency := th.Muted.Render(projectAge(project, now))
 	return []string{zones.Mark(zones.ProjectRow(index), text.Truncate(marker+name+summary+recency, width))}
 }
 
@@ -329,5 +329,5 @@ func projectAge(project netomatic.Project, now time.Time) string {
 	if err != nil {
 		return "never opened"
 	}
-	return statusline.Age(parsed, now) + " ago"
+	return "opened " + statusline.Age(parsed, now) + " ago"
 }

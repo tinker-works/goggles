@@ -51,6 +51,9 @@ func TestModel_ApplyFilterKey_ShouldCloseOnEnterAndKeepTheValue(t *testing.T) {
 	if m.Filter.Active || m.Filter.Value() != "checkout" {
 		t.Fatalf("expected applied filter to close, got active=%t value=%q", m.Filter.Active, m.Filter.Value())
 	}
+	if footer := m.Footer(theme.Default(), 100); strings.Contains(footer, "enter apply") {
+		t.Fatalf("expected navigation controls after applying the filter: %q", footer)
+	}
 }
 
 func TestModel_StartFilter_ShouldPreserveAnAppliedValue(t *testing.T) {

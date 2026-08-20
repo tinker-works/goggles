@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"charm.land/lipgloss/v2"
 	"github.com/tinker-works/goggles/tui/theme"
 	"github.com/tinker-works/goggles/tui/zones"
 )
@@ -177,6 +178,20 @@ func TestFormWithoutSubmitLabel_ShouldRenderMouseControls(t *testing.T) {
 	for _, zone := range []string{zones.ModalSubmit, zones.ModalCancel} {
 		if _, _, ok := zones.Bounds(zone); !ok {
 			t.Fatalf("expected %s zone", zone)
+		}
+	}
+}
+
+func TestFormView_ShouldRenderInsideABoundedPanel(t *testing.T) {
+	m := NewForm(Spec{ID: "project", Title: "Add project", Explain: strings.Repeat("details ", 30),
+		Fields: []Field{{Prompt: "Name"}}}, theme.Default(), 80)
+	view := m.View()
+	if !strings.Contains(view, "╭") || !strings.Contains(view, "╰") {
+		t.Fatalf("expected a bordered panel: %q", view)
+	}
+	for _, line := range strings.Split(view, "\n") {
+		if width := lipgloss.Width(line); width > 72 {
+			t.Fatalf("modal line exceeds its bounded width (%d): %q", width, line)
 		}
 	}
 }

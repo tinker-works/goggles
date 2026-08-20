@@ -371,7 +371,8 @@ func (m Model) formView() string {
 	if !m.spec.Forced {
 		lines = append(lines, zones.Mark(zones.ModalCancel, "Cancel"))
 	}
-	return strings.Join(lines, "\n")
+	width := max(20, min(72, m.Width-8))
+	return m.Style.Width(width).Render(strings.Join(lines, "\n"))
 }
 
 func (m Model) submitLabel() string {
