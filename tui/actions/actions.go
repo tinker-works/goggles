@@ -172,6 +172,12 @@ func CreateEpic(client netomatic.Client, project netomatic.Project, title, assig
 		if client == nil {
 			return unavailable("Creating epics")
 		}
+		if assignee != "" || len(repositories) > 0 {
+			return FinishedMsg{
+				Status: "Creating epics with an assignee or repository selection is not available",
+				Err:    ErrUnsupported{Reason: "the public daemon contract has no epic assignee or repository fields"},
+			}
+		}
 		response, err := client.CreateEpic(context.Background(), netomatic.CreateEpicRequest{
 			Project: projectKey(project), Title: title, Description: body,
 		})
@@ -199,6 +205,12 @@ func CreateIssue(client netomatic.Client, project netomatic.Project, epicID, par
 		if client == nil {
 			return unavailable("Creating issues")
 		}
+		if parentID != "" || repository != "" {
+			return FinishedMsg{
+				Status: "Creating issues with a parent or repository selection is not available",
+				Err:    ErrUnsupported{Reason: "the public daemon contract has no issue parent or repository fields"},
+			}
+		}
 		_, err := client.CreateIssue(context.Background(), netomatic.CreateIssueRequest{
 			Project: projectKey(project), Epic: epicID, Title: title, Description: body,
 		})
@@ -207,24 +219,28 @@ func CreateIssue(client netomatic.Client, project netomatic.Project, epicID, par
 }
 
 func TransitionEpic(client netomatic.Client, project netomatic.Project, epicID, state string) tea.Cmd {
-	return transitionEpic(client, project, epicID, state, false)
+	return transitionEpic(client, project, epicID, state)
 }
 
 func ForceEpicState(client netomatic.Client, project netomatic.Project, epicID, state string) tea.Cmd {
-	return transitionEpic(client, project, epicID, state, true)
+	return track(func() tea.Msg {
+		if client == nil {
+			return unavailable("Epic transitions")
+		}
+		return FinishedMsg{
+			Status: "Forcing epic states is not available",
+			Err:    ErrUnsupported{Reason: "the public daemon contract has no force transition operation"},
+		}
+	})
 }
 
-func transitionEpic(client netomatic.Client, project netomatic.Project, epicID, state string, forced bool) tea.Cmd {
+func transitionEpic(client netomatic.Client, project netomatic.Project, epicID, state string) tea.Cmd {
 	return track(func() tea.Msg {
 		if client == nil {
 			return unavailable("Epic transitions")
 		}
 		_, err := client.TransitionEpic(context.Background(), netomatic.TransitionEpicRequest{Project: projectKey(project), Epic: epicID, Status: state})
-		status := "Epic state set to " + state
-		if forced {
-			status = "Epic state forced to " + state
-		}
-		return FinishedMsg{Status: status, Err: err, Reload: ReloadEpic, EpicID: epicID}
+		return FinishedMsg{Status: "Epic state set to " + state, Err: err, Reload: ReloadEpic, EpicID: epicID}
 	})
 }
 
