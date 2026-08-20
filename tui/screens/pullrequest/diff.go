@@ -1,6 +1,9 @@
 package pullrequest
 
-import "strings"
+import (
+	"strconv"
+	"strings"
+)
 
 type DiffHunk struct {
 	Kind byte
@@ -72,11 +75,11 @@ func ParseDiff(diff string) []DiffFile {
 			inHunk = false
 		case current == nil:
 			continue
-		case strings.HasPrefix(line, "+++ "):
-			if name := strings.TrimPrefix(line, "+++ "); name != "/dev/null" {
+		case !inHunk && strings.HasPrefix(line, "+++ "):
+			if name := gitPath(strings.TrimPrefix(line, "+++ ")); name != "/dev/null" {
 				current.Path = strings.TrimPrefix(name, "b/")
 			}
-		case strings.HasPrefix(line, "--- "):
+		case !inHunk && strings.HasPrefix(line, "--- "):
 			continue
 		case strings.HasPrefix(line, "@@"):
 			inHunk = true
@@ -95,9 +98,75 @@ func ParseDiff(diff string) []DiffFile {
 }
 
 func pathFromHeader(line string) string {
-	fields := strings.Fields(line)
-	if len(fields) < 4 {
-		return strings.TrimSpace(strings.TrimPrefix(line, "diff --git "))
+	rest := strings.TrimSpace(strings.TrimPrefix(line, "diff --git "))
+	if !strings.HasPrefix(rest, `"`) {
+		if split := strings.LastIndex(rest, " b/"); split >= 0 {
+			return strings.TrimPrefix(strings.TrimSpace(rest[split+1:]), "b/")
+		}
 	}
-	return strings.TrimPrefix(fields[3], "b/")
+	fields := gitTokens(rest)
+	if len(fields) > 1 {
+		for _, field := range fields[1:] {
+			if strings.HasPrefix(field, "b/") {
+				return strings.TrimPrefix(field, "b/")
+			}
+		}
+	}
+	if len(fields) > 0 {
+		return strings.TrimPrefix(fields[len(fields)-1], "b/")
+	}
+	return rest
+}
+
+func gitPath(value string) string {
+	value = strings.TrimSpace(value)
+	if strings.HasPrefix(value, `"`) {
+		fields := gitTokens(value)
+		if len(fields) > 0 {
+			return fields[0]
+		}
+	}
+	return value
+}
+
+// gitTokens handles the C-style quoting used by git for paths containing
+// whitespace or special characters.
+func gitTokens(value string) []string {
+	var fields []string
+	for value != "" {
+		value = strings.TrimLeft(value, " \t")
+		if value == "" {
+			break
+		}
+		if value[0] != '"' {
+			end := strings.IndexAny(value, " \t")
+			if end < 0 {
+				fields = append(fields, value)
+				break
+			}
+			fields = append(fields, value[:end])
+			value = value[end:]
+			continue
+		}
+		end := 1
+		for end < len(value) {
+			if value[end] == '\\' {
+				end += 2
+				continue
+			}
+			if value[end] == '"' {
+				end++
+				break
+			}
+			end++
+		}
+		raw := value[:min(end, len(value))]
+		field, err := strconv.Unquote(raw)
+		if err != nil {
+			field = strings.Trim(raw, `"`)
+		}
+		fields = append(fields, field)
+		value = value[min(end, len(value)):]
+	}
+	return fields
 }

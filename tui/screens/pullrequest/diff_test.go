@@ -77,6 +77,30 @@ func TestParseDiff_ShouldFollowARename(t *testing.T) {
 	}
 }
 
+func TestParseDiff_ShouldDecodeQuotedPathsFromAHeader(t *testing.T) {
+	diff := `diff --git "a/docs/old name \"v1\".md" "b/docs/new name \"v1\".md"
+similarity index 100%
+rename from docs/old name "v1".md
+rename to docs/new name "v1".md
+`
+
+	files := ParseDiff(diff)
+	if len(files) != 1 || files[0].Path != `docs/new name "v1".md` {
+		t.Fatalf("expected the quoted destination path, got %+v", files)
+	}
+}
+
+func TestParseDiff_ShouldKeepSpacesInAHeaderWithoutAMetadataPath(t *testing.T) {
+	diff := `diff --git a/docs/old name.md b/docs/new name.md
+similarity index 100%
+`
+
+	files := ParseDiff(diff)
+	if len(files) != 1 || files[0].Path != "docs/new name.md" {
+		t.Fatalf("expected the destination path with spaces, got %+v", files)
+	}
+}
+
 func TestParseDiff_ShouldReturnNothingForAnEmptyDiff(t *testing.T) {
 	if files := ParseDiff(""); len(files) != 0 {
 		t.Fatalf("expected no files for an empty diff, got %+v", files)
