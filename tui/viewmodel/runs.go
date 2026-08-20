@@ -31,11 +31,14 @@ func (r Runner) Verdict() string {
 	return "—"
 }
 
-// Runners derives rail rows from public run DTOs, newest first.
+// Runners derives rail rows from public run DTOs, newest first. The public run
+// contract's Project field identifies the enclosing tracker, so it is not a
+// display subject. Resolve only identities present in the loaded presentation
+// data and keep an otherwise-unresolved run identifiable by its own ID.
 func Runners(runs []netomatic.AgentRun, epics []netomatic.Epic, now time.Time) []Runner {
 	out := make([]Runner, 0, len(runs))
 	for _, run := range runs {
-		subject := run.Project
+		subject := presentationSubject(run, epics)
 		if subject == "" {
 			subject = run.ID
 		}
@@ -48,6 +51,20 @@ func Runners(runs []netomatic.AgentRun, epics []netomatic.Epic, now time.Time) [
 		return runTime(out[i].Run).After(runTime(out[j].Run))
 	})
 	return out
+}
+
+func presentationSubject(run netomatic.AgentRun, epics []netomatic.Epic) string {
+	for _, epic := range epics {
+		if run.Project == epic.ID || run.Project == epic.Title {
+			return epic.Title
+		}
+		for _, issue := range epic.Issues {
+			if run.Project == issue.ID {
+				return issue.Title
+			}
+		}
+	}
+	return ""
 }
 
 // Usage is the screen-facing aggregate of daemon token accounting.

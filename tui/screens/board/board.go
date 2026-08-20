@@ -228,7 +228,9 @@ func (m Model) CycleGroup() Model {
 }
 
 func (m Model) StartFilter() Model {
+	value := m.Filter.Value()
 	m.Filter = filter.New("filter")
+	m.Filter.SetValue(value)
 	return m
 }
 

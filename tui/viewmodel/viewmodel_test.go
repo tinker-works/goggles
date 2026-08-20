@@ -2,6 +2,7 @@ package viewmodel
 
 import (
 	"testing"
+	"time"
 
 	"github.com/tinker-works/donsy/netomatic"
 )
@@ -37,5 +38,13 @@ func TestCommentTargets_ShouldUsePublicTargetKinds(t *testing.T) {
 	targets := CommentTargets(&netomatic.Epic{PullRequests: []netomatic.PullRequest{{ID: "pr", IssueID: "issue", Title: "Fix"}}}, "issue")
 	if len(targets) != 2 || targets[1].Kind != netomatic.PullRequestCommentTarget {
 		t.Fatalf("unexpected comment targets: %+v", targets)
+	}
+}
+
+func TestRunners_ShouldNotUseTheTrackerIdentifierAsTheSubject(t *testing.T) {
+	runs := Runners([]netomatic.AgentRun{{ID: "run", Project: "tracker", Status: "running"}},
+		[]netomatic.Epic{{ID: "epic", Title: "Checkout rewrite"}}, time.Time{})
+	if len(runs) != 1 || runs[0].Subject != "run" {
+		t.Fatalf("unexpected run subject: %+v", runs)
 	}
 }

@@ -120,3 +120,38 @@ func TestFormPaste_ShouldAppendToTheFocusedField(t *testing.T) {
 		t.Fatalf("unexpected pasted value: %v", values)
 	}
 }
+
+func TestFormBodyAndCycle_ShouldSubmitBothValues(t *testing.T) {
+	m := NewForm(Spec{ID: "comment", Fields: []Field{{Prompt: "Title"}}, Body: true,
+		Cycle: []string{"Issue", "Pull request"}, Submit: "Post"}, theme.Default(), 80)
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Text: "title", Code: 'e'}))
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyTab}))
+	m, _ = m.Update(tea.PasteMsg{Content: "comment body"})
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Text: "t", Code: 't'}))
+
+	_, cmd := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	msg, ok := cmd().(SubmittedMsg)
+	if !ok || msg.Values[0] != "title" || msg.Body != "comment body" || msg.Cycle != 1 {
+		t.Fatalf("unexpected body submission: %#v", msg)
+	}
+}
+
+func TestFormBody_ShouldRenderAndAcceptMouseFocus(t *testing.T) {
+	zones.Init()
+	m := NewForm(Spec{ID: "epic", Body: true, Submit: "Create"}, theme.Default(), 80)
+	view := zones.Scan(m.View())
+	if !strings.Contains(view, "Body:") {
+		t.Fatalf("expected body control in modal: %q", view)
+	}
+	bodyX, bodyY, ok := zones.Bounds(zones.ModalBody)
+	if !ok {
+		t.Fatal("body zone was not rendered")
+	}
+	m, _ = m.Update(tea.MouseClickMsg{X: bodyX, Y: bodyY, Button: tea.MouseLeft})
+	m, _ = m.Update(tea.PasteMsg{Content: "details"})
+	_, cmd := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	msg, ok := cmd().(SubmittedMsg)
+	if !ok || msg.Body != "details" {
+		t.Fatalf("unexpected body mouse submission: %#v", msg)
+	}
+}

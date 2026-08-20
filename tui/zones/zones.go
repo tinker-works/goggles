@@ -26,6 +26,8 @@ var global = New()
 const (
 	HeaderProject = "header-project"
 	ModalSubmit   = "modal-submit"
+	ModalCancel   = "modal-cancel"
+	ModalBody     = "modal-body"
 )
 
 // Init resets the package-level manager used by components that do not own a

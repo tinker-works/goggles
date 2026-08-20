@@ -53,6 +53,15 @@ func TestModel_ApplyFilterKey_ShouldCloseOnEnterAndKeepTheValue(t *testing.T) {
 	}
 }
 
+func TestModel_StartFilter_ShouldPreserveAnAppliedValue(t *testing.T) {
+	m := loadedBoard().StartFilter().SetFilter("checkout")
+	m = m.ApplyFilterKey(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = m.StartFilter()
+	if !m.Filter.Active || m.Filter.Value() != "checkout" {
+		t.Fatalf("reopened filter lost its value: active=%t value=%q", m.Filter.Active, m.Filter.Value())
+	}
+}
+
 func TestModel_ZoomAt_ShouldIgnoreAClosedRowThatIsNotOnTheBoard(t *testing.T) {
 	m := loadedBoard().ZoomAt(1)
 	if m.Zoomed {

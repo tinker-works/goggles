@@ -81,6 +81,8 @@ type Model struct {
 	option  int
 	values  []string
 	checked []bool
+	body    string
+	cycle   int
 }
 
 // New creates a hidden content modal.
@@ -132,8 +134,8 @@ func (m Model) updateForm(msg tea.Msg) (Model, tea.Cmd) {
 	case tea.MouseClickMsg:
 		return m.updateFormMouse(msg)
 	case tea.PasteMsg:
-		if !m.spec.Busy && m.focus >= 0 && m.focus < len(m.values) {
-			m.values[m.focus] += msg.Content
+		if !m.spec.Busy {
+			m.appendFocused(msg.Content)
 		}
 		return m, nil
 	default:
@@ -149,20 +151,14 @@ func (m Model) updateFormKey(keyMsg tea.KeyPressMsg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	if key.Matches(keyMsg, key.NewBinding(key.WithKeys("tab"))) {
-		focusable := len(m.values)
-		if len(m.checked) > 0 {
-			focusable++
-		}
+		focusable := m.focusable()
 		if focusable > 0 {
 			m.focus = (m.focus + 1) % focusable
 		}
 		return m, nil
 	}
 	if key.Matches(keyMsg, key.NewBinding(key.WithKeys("shift+tab"))) {
-		focusable := len(m.values)
-		if len(m.checked) > 0 {
-			focusable++
-		}
+		focusable := m.focusable()
 		if focusable > 0 {
 			m.focus = (m.focus + focusable - 1) % focusable
 		}
@@ -196,17 +192,19 @@ func (m Model) updateFormKey(keyMsg tea.KeyPressMsg) (Model, tea.Cmd) {
 		}
 		return m, nil
 	}
+	if len(m.spec.Cycle) > 0 && key.Matches(keyMsg, key.NewBinding(key.WithKeys("t"))) {
+		m.cycle = (m.cycle + 1) % len(m.spec.Cycle)
+		return m, nil
+	}
 	if m.spec.Busy {
 		return m, nil
 	}
+	if m.bodyFocused() {
+		m.body = editText(m.body, keyMsg)
+		return m, nil
+	}
 	if m.focus >= 0 && m.focus < len(m.values) {
-		if keyMsg.Text == "" {
-			if keyMsg.Code == tea.KeyBackspace && len(m.values[m.focus]) > 0 {
-				m.values[m.focus] = m.values[m.focus][:len(m.values[m.focus])-1]
-			}
-			return m, nil
-		}
-		m.values[m.focus] += keyMsg.Text
+		m.values[m.focus] = editText(m.values[m.focus], keyMsg)
 	}
 	return m, nil
 }
@@ -219,6 +217,9 @@ func (m Model) updateFormMouse(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 	if zones.In(mouse, zones.ModalSubmit) {
 		return m, m.submit()
 	}
+	if zones.In(mouse, zones.ModalCancel) && !m.spec.Forced {
+		return m, cancel(m.spec.ID)
+	}
 	for i := range m.spec.Choices {
 		if zones.In(mouse, zones.ModalChoice(i)) {
 			m.choice = i
@@ -227,13 +228,17 @@ func (m Model) updateFormMouse(msg tea.MouseClickMsg) (Model, tea.Cmd) {
 	}
 	for i := range m.spec.Options {
 		if zones.In(mouse, zones.ModalOption(i)) {
-			m.focus = len(m.values)
+			m.focus = m.focusable() - 1
 			m.option = i
 			if i < len(m.checked) {
 				m.checked[i] = !m.checked[i]
 			}
 			return m, nil
 		}
+	}
+	if m.spec.Body && zones.In(mouse, zones.ModalBody) {
+		m.focus = len(m.values)
+		return m, nil
 	}
 	for i := range m.values {
 		if zones.In(mouse, zones.ModalField(i)) {
@@ -256,8 +261,10 @@ func (m Model) submit() tea.Cmd {
 		}
 	}
 	choice := m.choice
+	body := m.body
+	cycle := m.cycle
 	return func() tea.Msg {
-		return SubmittedMsg{ID: m.spec.ID, Values: values, Options: options, Choice: choice}
+		return SubmittedMsg{ID: m.spec.ID, Values: values, Body: body, Options: options, Choice: choice, Cycle: cycle}
 	}
 }
 
@@ -320,6 +327,17 @@ func (m Model) formView() string {
 			lines = append(lines, errorText)
 		}
 	}
+	if m.spec.Body {
+		prefix, style := "", lipgloss.NewStyle()
+		if m.bodyFocused() {
+			prefix, style = "› ", m.SelectedStyle
+		}
+		lines = append(lines, zones.Mark(zones.ModalBody, style.Render(prefix+"Body: "+m.body)))
+	}
+	if len(m.spec.Cycle) > 0 {
+		target := m.spec.Cycle[min(m.cycle, len(m.spec.Cycle)-1)]
+		lines = append(lines, "Target: "+target+"  press t to change")
+	}
 	for i, option := range m.spec.Options {
 		if i == 0 {
 			prompt := m.spec.OptionsPrompt
@@ -347,12 +365,49 @@ func (m Model) formView() string {
 			submit += "…"
 		}
 		lines = append(lines, zones.Mark(zones.ModalSubmit, submit))
+		if !m.spec.Forced {
+			lines = append(lines, zones.Mark(zones.ModalCancel, "Cancel"))
+		}
 	}
 	return strings.Join(lines, "\n")
 }
 
 func (m Model) optionsFocused() bool {
-	return len(m.spec.Options) > 0 && m.focus == len(m.values)
+	return len(m.spec.Options) > 0 && m.focus == m.focusable()-1
+}
+
+func (m Model) bodyFocused() bool { return m.spec.Body && m.focus == len(m.values) }
+
+func (m Model) focusable() int {
+	total := len(m.values)
+	if m.spec.Body {
+		total++
+	}
+	if len(m.spec.Options) > 0 {
+		total++
+	}
+	return total
+}
+
+func (m *Model) appendFocused(value string) {
+	if m.bodyFocused() {
+		m.body += value
+	} else if m.focus >= 0 && m.focus < len(m.values) {
+		m.values[m.focus] += value
+	}
+}
+
+func editText(value string, keyMsg tea.KeyPressMsg) string {
+	if keyMsg.Text != "" {
+		return value + keyMsg.Text
+	}
+	if keyMsg.Code == tea.KeyBackspace {
+		runes := []rune(value)
+		if len(runes) > 0 {
+			return string(runes[:len(runes)-1])
+		}
+	}
+	return value
 }
 
 // WithError returns a copy with an error attached to a field or the form.
