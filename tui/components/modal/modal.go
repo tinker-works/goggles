@@ -8,6 +8,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"charm.land/lipgloss/v2"
 	"github.com/tinker-works/goggles/tui/theme"
+	"github.com/tinker-works/goggles/tui/zones"
 )
 
 // Field is one text input in a modal specification.
@@ -84,8 +85,10 @@ func NewForm(spec Spec, t theme.Theme, width int) Model {
 	for i, field := range spec.Fields {
 		values[i] = field.Value
 	}
+	checked := make([]bool, len(spec.Options))
+	copy(checked, spec.Checked)
 	return Model{Width: width, Style: t.Panel, TitleStyle: t.Title,
-		spec: spec, form: true, values: values, checked: append([]bool(nil), spec.Checked...)}
+		spec: spec, form: true, values: values, checked: checked}
 }
 
 // Show opens the modal with content.
@@ -112,10 +115,17 @@ func (m Model) Update(msg tea.Msg) (Model, tea.Cmd) {
 }
 
 func (m Model) updateForm(msg tea.Msg) (Model, tea.Cmd) {
-	keyMsg, ok := msg.(tea.KeyPressMsg)
-	if !ok {
+	switch msg := msg.(type) {
+	case tea.KeyPressMsg:
+		return m.updateFormKey(msg)
+	case tea.MouseClickMsg:
+		return m.updateFormMouse(msg)
+	default:
 		return m, nil
 	}
+}
+
+func (m Model) updateFormKey(keyMsg tea.KeyPressMsg) (Model, tea.Cmd) {
 	if key.Matches(keyMsg, key.NewBinding(key.WithKeys("esc"))) {
 		if !m.spec.Forced {
 			return m, func() tea.Msg { return nil }
@@ -137,16 +147,10 @@ func (m Model) updateForm(msg tea.Msg) (Model, tea.Cmd) {
 		return m, nil
 	}
 	if key.Matches(keyMsg, key.NewBinding(key.WithKeys("enter"))) {
-		values := append([]string(nil), m.values...)
-		options := make([]string, 0, len(m.checked))
-		for i, checked := range m.checked {
-			if checked && i < len(m.spec.Options) {
-				options = append(options, m.spec.Options[i])
-			}
-		}
-		return m, func() tea.Msg {
-			return SubmittedMsg{ID: m.spec.ID, Values: values, Options: options}
-		}
+		return m, m.submit()
+	}
+	if m.spec.Busy {
+		return m, nil
 	}
 	if key.Matches(keyMsg, key.NewBinding(key.WithKeys("space"))) && len(m.checked) > 0 {
 		if m.focus >= len(m.values) {
@@ -167,6 +171,48 @@ func (m Model) updateForm(msg tea.Msg) (Model, tea.Cmd) {
 		m.values[m.focus] += keyMsg.Text
 	}
 	return m, nil
+}
+
+func (m Model) updateFormMouse(msg tea.MouseClickMsg) (Model, tea.Cmd) {
+	mouse := msg.Mouse()
+	if mouse.Button != tea.MouseLeft || m.spec.Busy {
+		return m, nil
+	}
+	if zones.In(mouse, zones.ModalSubmit) {
+		return m, m.submit()
+	}
+	for i := range m.spec.Options {
+		if zones.In(mouse, zones.ModalOption(i)) {
+			m.focus = len(m.values) + i
+			if i < len(m.checked) {
+				m.checked[i] = !m.checked[i]
+			}
+			return m, nil
+		}
+	}
+	for i := range m.values {
+		if zones.In(mouse, zones.ModalField(i)) {
+			m.focus = i
+			return m, nil
+		}
+	}
+	return m, nil
+}
+
+func (m Model) submit() tea.Cmd {
+	if m.spec.Busy {
+		return nil
+	}
+	values := append([]string(nil), m.values...)
+	options := make([]string, 0, len(m.checked))
+	for i, checked := range m.checked {
+		if checked && i < len(m.spec.Options) {
+			options = append(options, m.spec.Options[i])
+		}
+	}
+	return func() tea.Msg {
+		return SubmittedMsg{ID: m.spec.ID, Values: values, Options: options}
+	}
 }
 
 // Resize changes the form width.
@@ -216,7 +262,7 @@ func (m Model) formView() string {
 		if i < len(m.values) {
 			value = m.values[i]
 		}
-		lines = append(lines, field.Prompt+": "+value)
+		lines = append(lines, zones.Mark(zones.ModalField(i), field.Prompt+": "+value))
 		if errorText := m.spec.FieldError(i); errorText != "" {
 			lines = append(lines, errorText)
 		}
@@ -226,7 +272,7 @@ func (m Model) formView() string {
 		if i < len(m.checked) && m.checked[i] {
 			mark = "x"
 		}
-		lines = append(lines, "["+mark+"] "+option)
+		lines = append(lines, zones.Mark(zones.ModalOption(i), "["+mark+"] "+option))
 	}
 	if errorText := m.spec.FormError(); errorText != "" {
 		lines = append(lines, errorText)
@@ -236,7 +282,7 @@ func (m Model) formView() string {
 		if m.spec.Busy {
 			submit += "…"
 		}
-		lines = append(lines, submit)
+		lines = append(lines, zones.Mark(zones.ModalSubmit, submit))
 	}
 	return strings.Join(lines, "\n")
 }

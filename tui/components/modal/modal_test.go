@@ -1,6 +1,12 @@
 package modal
 
-import "testing"
+import (
+	"testing"
+
+	tea "charm.land/bubbletea/v2"
+	"github.com/tinker-works/goggles/tui/theme"
+	"github.com/tinker-works/goggles/tui/zones"
+)
 
 func TestModalVisibility(t *testing.T) {
 	m := New("title", "body")
@@ -14,5 +20,46 @@ func TestModalVisibility(t *testing.T) {
 	m.Hide()
 	if m.View() != "" {
 		t.Fatal("hidden modal rendered content")
+	}
+}
+
+func TestFormBusy_ShouldRefuseASecondSubmit(t *testing.T) {
+	m := NewForm(Spec{ID: "setup", Fields: []Field{{Prompt: "Model"}}, Busy: true}, theme.Default(), 80)
+	_, cmd := m.Update(tea.KeyPressMsg(tea.Key{Code: tea.KeyEnter}))
+	if cmd != nil {
+		t.Fatal("busy form accepted a second submission")
+	}
+}
+
+func TestFormMouse_ShouldFocusFieldsToggleOptionsAndSubmit(t *testing.T) {
+	zones.Init()
+	m := NewForm(Spec{ID: "setup", Fields: []Field{{Prompt: "Model"}, {Prompt: "Variant"}},
+		Options: []string{"acme/widgets"}, Submit: "Initialise"}, theme.Default(), 80)
+	view := zones.Scan(m.View())
+	if view == "" {
+		t.Fatal("expected a rendered form")
+	}
+
+	fieldX, fieldY, ok := zones.Bounds(zones.ModalField(1))
+	if !ok {
+		t.Fatal("variant field zone was not rendered")
+	}
+	m, _ = m.Update(tea.MouseClickMsg{X: fieldX, Y: fieldY, Button: tea.MouseLeft})
+	m, _ = m.Update(tea.KeyPressMsg(tea.Key{Text: "v", Code: 'v'}))
+
+	optionX, optionY, ok := zones.Bounds(zones.ModalOption(0))
+	if !ok {
+		t.Fatal("repository option zone was not rendered")
+	}
+	m, _ = m.Update(tea.MouseClickMsg{X: optionX, Y: optionY, Button: tea.MouseLeft})
+
+	submitX, submitY, ok := zones.Bounds(zones.ModalSubmit)
+	if !ok {
+		t.Fatal("submit zone was not rendered")
+	}
+	_, cmd := m.Update(tea.MouseClickMsg{X: submitX, Y: submitY, Button: tea.MouseLeft})
+	msg, ok := cmd().(SubmittedMsg)
+	if !ok || msg.Values[1] != "v" || len(msg.Options) != 1 || msg.Options[0] != "acme/widgets" {
+		t.Fatalf("unexpected mouse submission: %#v", msg)
 	}
 }

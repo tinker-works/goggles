@@ -23,7 +23,10 @@ type Zone struct {
 
 var global = New()
 
-const HeaderProject = "header-project"
+const (
+	HeaderProject = "header-project"
+	ModalSubmit   = "modal-submit"
+)
 
 // Init resets the package-level manager used by components that do not own a
 // screen-level manager.
@@ -34,6 +37,16 @@ func Mark(id, content string) string { return global.Mark(id, content) }
 
 // Scan removes package-level markers and records their bounds.
 func Scan(view string) string { return global.Scan(view) }
+
+// In reports whether a mouse point falls inside the named package-level zone.
+func In(mouse tea.Mouse, id string) bool {
+	area, ok := global.Get(id)
+	if !ok {
+		return false
+	}
+	return mouse.X >= area.StartX && mouse.X <= area.EndX &&
+		mouse.Y >= area.StartY && mouse.Y <= area.EndY
+}
 
 // Bounds returns the package-level zone origin as x, y, and ok.
 func Bounds(id string) (int, int, bool) {
@@ -46,6 +59,9 @@ func Bounds(id string) (int, int, bool) {
 
 // EpicTreeRow is the stable ID for an issue-tree row.
 func EpicTreeRow(index int) string { return "epic-tree-row-" + strconv.Itoa(index) }
+
+func ModalField(index int) string  { return "modal-field-" + strconv.Itoa(index) }
+func ModalOption(index int) string { return "modal-option-" + strconv.Itoa(index) }
 
 func AttentionRow(index int) string { return "attention-" + strconv.Itoa(index) }
 
